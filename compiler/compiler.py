@@ -1,4 +1,5 @@
 import os
+from .parser import Parser, EndOfParsingError
 
 
 class Compiler:
@@ -22,5 +23,12 @@ class Compiler:
 
 		self.compileFile(file, code)
 
+
 	def compileFile(self, file, code):
-		print(file, code)
+		parser = Parser(code)
+
+		try:
+			command = parser.parseCommand()
+			print(command)
+		except EndOfParsingError:
+			return
