@@ -16,8 +16,8 @@ if len(sys.argv) < 2:
 	print("""                                header)                                         """)
 	print("""py11 a b c -o proj              Compile & link files a, b and c to proj.bin (w/ """)
 	print("""                                bin header)                                     """)
-	print("""py11 --project dir              Compile & link all .mac files inside dir/, not  """)
-	print("""                                mentioned in .py11ignore, to dir.bin            """)
+	print("""py11 --project dir              Compile & link file dir/main.mac (see Project   """)
+	print("""                                mode)                                           """)
 	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
 	print()
@@ -63,6 +63,15 @@ if len(sys.argv) < 2:
 	print("""[, size] ]                      start bytes from the beginning of "filename"    """)
 	print("""                                and, if size is passed, trimming to at most     """)
 	print("""                                size bytes.                                     """)
+	print()
+	print("Project mode")
+	print("""In project mode, most directives, such as ORG, .LINK, .LA, make_raw and         """)
+	print("""make_bk0010_rom are ignored, and only arguments from command line are used.     """)
+	print(""".py11ignore file is checked, and all files (and directories -- this file has    """)
+	print("""syntax that's similar to .gitignore) are not compiled or linked.                """)
+	print("""The file to be compiled is main.mac -- it can include other files via .INCLUDE  """)
+	print("""or .RAW_INCLUDE. Moreover, these directives support passing directories now --  """)
+	print("""this includes all .mac files inside, not specified in .py11ignore.              """)
 
 	raise SystemExit(0)
 
@@ -96,7 +105,7 @@ while len(args):
 	elif arg == "--syntax":
 		syntax = args.pop(0)
 	else:
-		files.append((arg, False))
+		files.append(arg)
 
 if len(files) == 0 and project is None:
 	print("No files passed")
@@ -137,7 +146,11 @@ if output is None:
 		if output.endswith(".mac"):
 			output = output[:-4]
 
+file_list = []
+
 if project is not None:
+	files.append(os.path.join(project, "main.mac"))
+
 	# Get py11ignore
 	py11ignore = []
 	try:
@@ -188,12 +201,12 @@ if project is not None:
 			else:
 				# No match -- not in py11ignore
 				if file.endswith(".mac"):
-					files.append(file)
+					file_list.append(file)
 
 
 output_stream = open(output, "w")
 
-compiler = Compiler(syntax=syntax, link=link)
+compiler = Compiler(syntax=syntax, link=link, file_list=file_list, project=project)
 for file in files:
 	compiler.addFile(file)
 output_stream.write(compiler.link())
