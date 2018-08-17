@@ -155,16 +155,13 @@ class Parser:
 		# Parse literal, starting with self.pos, and seek to
 		# its end. Return the literal in upper case.
 
-		with Transaction(self):
+		with Transaction(self, maybe=maybe):
 			# Skip whitespace
 			try:
 				while self.code[self.pos] in whitespace:
 					self.pos += 1
 			except IndexError:
-				if maybe:
-					raise EndOfParsingError()
-				else:
-					raise InvalidError("Expected literal, got EOF")
+				raise InvalidError("Expected literal, got EOF")
 
 			literal = ""
 
@@ -184,37 +181,29 @@ class Parser:
 					literal += self.code[self.pos].upper()
 					self.pos += 1
 				else:
-					if maybe:
-						return None
-					else:
-						raise InvalidError("Expected literal, got '{}'".format(self.code[self.pos]))
+					raise InvalidError("Expected literal, got '{}'".format(self.code[self.pos]))
 
 
 	def needPunct(self, char, maybe=False):
-		with Transaction(self):
+		with Transaction(self, maybe=maybe):
 			# Skip whitespace
 			try:
 				while self.code[self.pos] in whitespace:
 					self.pos += 1
 			except IndexError:
-				if maybe:
-					raise EndOfParsingError()
-				else:
-					raise InvalidError("Expected literal, got EOF")
+				raise InvalidError("Expected literal, got EOF")
 
 			if self.code[self.pos] == char:
 				self.pos += 1
 				return char
 			else:
-				if maybe:
-					return None
-				else:
-					raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
 
 
 class Transaction:
-	def __init__(self, parser):
+	def __init__(self, parser, maybe=False):
 		self.parser = parser
+		self.maybe = maybe
 
 	def __enter__(self):
 		self.pos = self.parser.pos
@@ -227,4 +216,8 @@ class Transaction:
 			raise err
 		elif isinstance(err_cls, InvalidError):
 			# Could not parse token as ...
-			self.parser.pos = self.pos
+			maybe
+			if self.maybe:
+				return
+			else:
+				raise err
