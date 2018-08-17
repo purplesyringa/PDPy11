@@ -1,5 +1,6 @@
+import os
 import sys
-#from .compiler import Compiler
+from .compiler import Compiler
 
 if len(sys.argv) < 2:
 	print("PY11 Compiler")
@@ -15,7 +16,7 @@ if len(sys.argv) < 2:
 	print("""                                header)                                         """)
 	print("""py11 a b c -o proj              Compile & link files a, b and c to proj.bin (w/ """)
 	print("""                                bin header)                                     """)
-	print("""py11 --project dir              Compile & link all files inside dir/, not       """)
+	print("""py11 --project dir              Compile & link all .mac files inside dir/, not  """)
 	print("""                                mentioned in .py11ignore, to dir.bin            """)
 	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
@@ -26,7 +27,8 @@ if len(sys.argv) < 2:
 	print("""--syntax py11                   Use PY11 features, fix pdp11asm bugs            """)
 	print()
 	print("Directives:")
-	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link)              """)
+	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). Ignored in  """)
+	print("""                                project mode.                                   """)
 	print(""".INCLUDE "filename" /           Compile file "filename", then return to current """)
 	print(""".RAW_INCLUDE filename           file. Embed "filename" to current binary file,  """)
 	print("""                                and link it from ".".                           """)
@@ -48,10 +50,10 @@ if len(sys.argv) < 2:
 	print(""".ASCIZ "..."                    Emits string, plus zero byte                    """)
 	print("""make_raw ["..."]                Same as --raw. If string is passed, this is the """)
 	print("""                                resulting filename. However, if -o is passed,   """)
-	print("""                                filename is ignored.                            """)
+	print("""                                filename is ignored. Ignored in project mode.   """)
 	print("""make_bk0010_rom ["..."]         Same as --bin. If string is passed, this is the """)
 	print("""                                resulting filename. However, if -o is passed,   """)
-	print("""                                filename is ignored.                            """)
+	print("""                                filename is ignored. Ignored in project mode.   """)
 	print("""convert1251toKOI8R {ON|OFF}     Ignored                                         """)
 	print("""decimalnumbers {ON|OFF}         If ON, N is the same as N., and you must use    """)
 	print("""                                0oN or 0N or No for octal. This does not affect """)
@@ -70,6 +72,7 @@ files = []
 output = None
 syntax = "pdp11asm"
 link = "1000"
+project = None
 
 args = sys.argv[1:]
 while len(args):
@@ -80,7 +83,11 @@ while len(args):
 	elif arg == "--raw":
 		isBin = False
 	elif arg == "--project":
-		files.append((args.pop(0), True))
+		if project is not None:
+			print("Only 1 project may be linked")
+			raise SystemExit(1)
+
+		project = args.pop(0)
 	elif arg == "-o":
 		output = args.pop(0)
 	elif arg == "--link":
@@ -90,27 +97,106 @@ while len(args):
 	else:
 		files.append((arg, False))
 
-if len(files) == 0:
+if len(files) == 0 and project is None:
 	print("No files passed")
+	raise SystemExit(1)
+elif len(files) != 0 and project is not None:
+	print("Either a project or file list may be passed, not both")
 	raise SystemExit(1)
 elif syntax not in ("pdp11asm", "py11"):
 	print("Invalid syntax (expected 'pdp11asm' or 'py11', got '{}')".format(syntax))
 	raise SystemExit(1)
 
-if link[:2] in ("0x", "0X"):
-	link = int(link[2:], 16)
-elif link[:2] in ("0d", "0D"):
-	link = int(link[2:], 10)
-elif link[-1] in ("h", "H"):
-	link = int(link[:-1], 16)
-elif link[-1] in ("d", "D", "."):
-	link = int(link[:-1], 10)
-else:
-	link = int(link, 8)
+if link is not None:
+	if link[:2] in ("0x", "0X"):
+		link = int(link[2:], 16)
+	elif link[:2] in ("0d", "0D"):
+		link = int(link[2:], 10)
+	elif link[-1] in ("h", "H"):
+		link = int(link[:-1], 16)
+	elif link[-1] in ("d", "D", "."):
+		link = int(link[:-1], 10)
+	else:
+		link = int(link, 8)
+
+if project is not None:
+	if link is None:
+		print("--link was not passed in project mode")
+		raise SystemExit(1)
+	elif isBin is None:
+		isBin = True
 
 if output is None:
-	output = files[0][0]
-	if output.endswith(".mac"):
-		output = output[:-4]
+	if project is not None:
+		output = project
 
-print(files, output, syntax, link)
+		# Add extension
+		if isBin:
+			output += ".bin"
+		else:
+			output += ".raw"
+	else:
+		output = files[0][0]
+		if output.endswith(".mac"):
+			output = output[:-4]
+
+if project is not None:
+	# Get py11ignore
+	py11ignore = []
+	try:
+		with open(os.path.join(project, ".py11ignore")) as f:
+			for line in f.read().split("\n"):
+				# Replace directory separators
+				line = line.replace("/", os.sep)
+				line = line.replace("\\", os.sep)
+
+				isRoot = line.startswith(os.sep)
+				isDir = line.endswith(os.sep)
+
+				# Split
+				line = line.split(os.sep)
+
+				# Remove empty parts
+				line = [part for part in line if part != ""]
+
+				# Join back
+				line = os.sep.join(line)
+
+				# Save
+				py11ignore.append((line, isRoot, isDir))
+	except FileNotFoundError:
+		pass
+
+	# Get file list
+	for dirName, _, fileNames in os.walk(project):
+		for fileName in fileNames:
+			file = os.path.join(dirName, fileName)
+
+			for line, isRoot, isDir in py11ignore:
+				if file == line:
+					# Full match
+					if not isDir:
+						break
+				elif file.startswith(line + os.sep):
+					# Prefix match
+					break
+				elif file.endswith(os.sep + line):
+					# Suffix match
+					if not isRoot:
+						break
+				elif os.sep + line + os.sep in file:
+					# Substring match
+					if not isRoot:
+						break
+			else:
+				# No match -- not in py11ignore
+				if file.endswith(".mac"):
+					files.append(file)
+
+
+output_stream = open(output, "w")
+
+compiler = Compiler(syntax=syntax, link=link)
+for file in files:
+	compiler.addFile(file)
+output_stream.write(compiler.link())
