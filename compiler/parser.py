@@ -83,6 +83,74 @@ class Parser:
 		print("simple command", literal)
 
 
+
+	def handleLink(self):
+		# ORG / .LINK / .LA
+		return ".LINK", self.needInteger()
+
+	def handleInclude(self, raw):
+		# .INCLUDE / .RAW_INCLUDE
+		if raw:
+			return ".INCLUDE", self.needRaw()
+		else:
+			return ".INCLUDE", self.needString()
+
+	def handlePdp11(self):
+		return ".PDP11", None
+
+	def handleI8080(self):
+		return ".I8080", None
+
+	def handleSyntax(self):
+		return ".SYNTAX", self.needLiteral().lower()
+
+	def handleByte(self):
+		# .DB / .BYTE / DB
+		return ".BYTE", self.needInteger()
+
+	def handleWord(self):
+		# .DW / .WORD / DW
+		return ".WORD", self.needInteger()
+
+	def handleEnd(self):
+		return ".END", None
+
+	def handleBlkb(self):
+		# .DS / .BLKB / DS
+		return ".BLKB", self.needInteger()
+
+	def handleBlkw(self):
+		# .BLKW
+		return ".BLKW", self.needInteger()
+
+	def handleEven(self):
+		# .EVEN
+		return ".EVEN", None
+
+	def handleAlign(self):
+		# ALIGN
+		return ".ALIGN", self.needInteger()
+
+	def handleAscii(self, term=""):
+		# .ASCII/.ASCIZ
+		return ".ASCII", self.needString() + term
+
+	def handleMakeRaw(self):
+		return ".MAKE_RAW", self.needString(maybe=True)
+
+	def handleMakeBin(self):
+		return ".MAKE_BIN", self.needString(maybe=True)
+
+	def handleConvert1251toKOI8R(self):
+		return ".CONVERT1251TOKOI8R", self.needBool()
+
+	def handleDecimalNumbers(self):
+		return ".DECIMALNUMBERS", self.needBool()
+
+	def handleInsertFile(self):
+		return ".INSERT_FILE", self.needString()
+
+
 	def needLiteral(self, maybe=False):
 		# Parse literal, starting with self.pos, and seek to
 		# its end. Return the literal in upper case.
