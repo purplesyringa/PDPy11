@@ -107,23 +107,19 @@ elif syntax not in ("pdp11asm", "py11"):
 	print("Invalid syntax (expected 'pdp11asm' or 'py11', got '{}')".format(syntax))
 	raise SystemExit(1)
 
-if link is not None:
-	if link[:2] in ("0x", "0X"):
-		link = int(link[2:], 16)
-	elif link[:2] in ("0d", "0D"):
-		link = int(link[2:], 10)
-	elif link[-1] in ("h", "H"):
-		link = int(link[:-1], 16)
-	elif link[-1] in ("d", "D", "."):
-		link = int(link[:-1], 10)
-	else:
-		link = int(link, 8)
+if link[:2] in ("0x", "0X"):
+	link = int(link[2:], 16)
+elif link[:2] in ("0d", "0D"):
+	link = int(link[2:], 10)
+elif link[-1] in ("h", "H"):
+	link = int(link[:-1], 16)
+elif link[-1] in ("d", "D", "."):
+	link = int(link[:-1], 10)
+else:
+	link = int(link, 8)
 
 if project is not None:
-	if link is None:
-		print("--link was not passed in project mode")
-		raise SystemExit(1)
-	elif isBin is None:
+	if isBin is None:
 		isBin = True
 
 if output is None:
