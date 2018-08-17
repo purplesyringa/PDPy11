@@ -1,5 +1,5 @@
 import sys
-#from compiler import Compiler
+#from .compiler import Compiler
 
 if len(sys.argv) < 2:
 	print("PY11 Compiler")
@@ -63,4 +63,54 @@ if len(sys.argv) < 2:
 
 	raise SystemExit(0)
 
-#print Compiler
+
+# Parse CLI arguments
+isBin = None
+files = []
+output = None
+syntax = "pdp11asm"
+link = "1000"
+
+args = sys.argv[1:]
+while len(args):
+	arg = args.pop(0)
+
+	if arg == "--bin":
+		isBin = True
+	elif arg == "--raw":
+		isBin = False
+	elif arg == "--project":
+		files.append((args.pop(0), True))
+	elif arg == "-o":
+		output = args.pop(0)
+	elif arg == "--link":
+		link = args.pop(0)
+	elif arg == "--syntax":
+		syntax = args.pop(0)
+	else:
+		files.append((arg, False))
+
+if len(files) == 0:
+	print("No files passed")
+	raise SystemExit(1)
+elif syntax not in ("pdp11asm", "py11"):
+	print("Invalid syntax (expected 'pdp11asm' or 'py11', got '{}')".format(syntax))
+	raise SystemExit(1)
+
+if link[:2] in ("0x", "0X"):
+	link = int(link[2:], 16)
+elif link[:2] in ("0d", "0D"):
+	link = int(link[2:], 10)
+elif link[-1] in ("h", "H"):
+	link = int(link[:-1], 16)
+elif link[-1] in ("d", "D", "."):
+	link = int(link[:-1], 10)
+else:
+	link = int(link, 8)
+
+if output is None:
+	output = files[0][0]
+	if output.endswith(".mac"):
+		output = output[:-4]
+
+print(files, output, syntax, link)
