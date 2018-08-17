@@ -38,6 +38,7 @@ if len(sys.argv) < 2:
 	print("""                                syntax differs.                                 """)
 	print(""".PDP11                          Ignored                                         """)
 	print(""".i8080                          Emits syntax error                              """)
+	print(""".SYNTAX {pdp11asm/py11}         Change syntax locally, for 1 file               """)
 	print(""".DB n / .BYTE n / DB n          Emits byte N                                    """)
 	print(""".DW n / .WORD n / DW n          Emits word N                                    """)
 	print(""".END / END                      Same as EOF                                     """)
