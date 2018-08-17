@@ -221,3 +221,6 @@ class Transaction:
 				return
 			else:
 				raise err
+		else:
+			# Some weird bug
+			raise err
