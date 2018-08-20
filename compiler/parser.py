@@ -2,7 +2,7 @@ import os
 
 
 whitespace = "\n\r\t "
-punctuation = ",!@#$%^&*()[]\\{}|/~`'\";:?<>._+-="
+punctuation = ",!@#%^&*()[]\\{}|/~`'\";:?<>.+-="
 
 class EndOfParsingError(Exception):
 	pass
@@ -15,72 +15,112 @@ class Parser:
 		self.pos = 0
 		self.decimal = False
 
-	def parseCommand(self):
+	def parse(self):
+		try:
+			while True:
+				for cmd in self.parseCommand():
+					yield cmd
+		except EndOfParsingError:
+			pass
+
+	def parseCommand(self, labels=[]):
 		literal = self.needLiteral(maybe=True)
 
 		# First, handle metacommands (directives)
 		if literal == "ORG":
-			return self.handleLink()
+			yield self.handleLink(), labels
+			return
 		elif literal == "DB":
-			return self.handleByte()
+			yield self.handleByte(), labels
+			return
 		elif literal == "DW":
-			return self.handleWord()
+			yield self.handleWord(), labels
+			return
 		elif literal == "END":
+			yield None, labels
 			raise EndOfParsingError()
 		elif literal == "DS":
-			return self.handleBlkb()
+			yield self.handleBlkb(), labels
+			return
 		elif literal == "ALIGN":
-			return self.handleAlign()
+			yield self.handleAlign(), labels
+			return
 		elif literal == "MAKE_RAW":
-			return self.handleMakeRaw()
+			yield self.handleMakeRaw(), labels
+			return
 		elif literal == "MAKE_BK0010_ROM":
-			return self.handleMakeBin()
+			yield self.handleMakeBin(), labels
+			return
 		elif literal == "CONVERT1251TOKOI8R":
-			return self.handleConvert1251toKOI8R()
+			yield self.handleConvert1251toKOI8R(), labels
+			return
 		elif literal == "DECIMALNUMBERS":
-			return self.handleDecimalNumbers()
+			yield self.handleDecimalNumbers(), labels
+			return
 		elif literal == "INSERT_FILE":
-			return self.handleInsertFile()
+			yield self.handleInsertFile(), labels
+			return
 
 		# Maybe it's a metacommand that starts with a dot?
 		if literal is None and self.needPunct(".", maybe=True):
 			literal = self.needLiteral()
 
 			if literal == "LINK" or literal == "LA":
-				return self.handleLink()
+				yield self.handleLink(), labels
+				return
 			elif literal == "INCLUDE":
-				return self.handleInclude()
+				yield self.handleInclude(), labels
+				return
 			elif literal == "RAW_INCLUDE":
-				return self.handleInclude(raw=True)
+				yield self.handleInclude(raw=True), labels
+				return
 			elif literal == "PDP11":
-				return self.handlePdp11()
+				yield self.handlePdp11(), labels
+				return
 			elif literal == "I8080":
-				return self.handleI8080()
+				yield self.handleI8080(), labels
+				return
 			elif literal == "SYNTAX":
-				return self.handleSyntax()
+				yield self.handleSyntax(), labels
+				return
 			elif literal == "DB" or literal == "BYTE":
-				return self.handleByte()
+				yield self.handleByte(), labels
+				return
 			elif literal == "DW" or literal == "WORD":
-				return self.handleWord()
+				yield self.handleWord(), labels
+				return
 			elif literal == "END":
+				yield None, labels
 				raise EndOfParsingError()
 			elif literal == "DS" or literal == "BLKB":
-				return self.handleBlkb()
+				yield self.handleBlkb(), labels
+				return
 			elif literal == "BLKW":
-				return self.handleBlkw()
+				yield self.handleBlkw(), labels
+				return
 			elif literal == "EVEN":
-				return self.handleEven()
+				yield self.handleEven(), labels
+				return
 			elif literal == "ASCII":
-				return self.handleAscii(term="")
+				yield self.handleAscii(term=""), labels
+				return
 			elif literal == "ASCIZ":
-				return self.handleAscii(term="\x00")
+				yield self.handleAscii(term="\x00"), labels
+				return
 			else:
 				raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
 
-		# Otherwise, it's a simple command
 		if literal is None:
-			raise InvalidError("Expected literal or .COMMAND")
+			raise InvalidError("Expected COMMAND, LABEL: or .COMMAND")
 
+		# It is either a command or a label
+		if self.needPunct(":", maybe=True):
+			# It's a label
+			for cmd in self.parseCommand(labels=labels + [literal]):
+				yield cmd
+			return
+
+		# It's a command
 		print("simple command", literal)
 
 
@@ -171,12 +211,16 @@ class Parser:
 				try:
 					if self.code[self.pos] in whitespace + punctuation:
 						# Punctuation or whitespace
+						if literal == "":
+							raise InvalidError("Expected literal, got '{}'".format(self.code[self.pos]))
 						return literal
 				except IndexError:
 					# End
+					if literal == "":
+						raise InvalidError("Expected literal, got EOF")
 					return literal
 
-				if self.code[self.pos].upper() in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+				if self.code[self.pos].upper() in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_$":
 					literal += self.code[self.pos].upper()
 					self.pos += 1
 				elif self.code[self.pos] in "0123456789" and literal != "":
@@ -416,14 +460,14 @@ class Transaction:
 		if err_cls is None:
 			# Success
 			pass
-		elif isinstance(err_cls, EndOfParsingError):
+		elif isinstance(err, EndOfParsingError):
 			# It doesn't make sense to parse further
 			raise err
-		elif isinstance(err_cls, InvalidError):
+		elif isinstance(err, InvalidError):
 			# Could not parse token as ...
-			maybe
 			if self.maybe:
-				return
+				self.parser.pos = self.pos
+				return True
 			else:
 				raise err
 		else:

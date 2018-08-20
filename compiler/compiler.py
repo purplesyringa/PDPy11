@@ -27,8 +27,5 @@ class Compiler:
 	def compileFile(self, file, code):
 		parser = Parser(code)
 
-		try:
-			command = parser.parseCommand()
+		for command in parser.parse():
 			print(command)
-		except EndOfParsingError:
-			return
