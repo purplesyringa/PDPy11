@@ -13,6 +13,7 @@ class Parser:
 	def __init__(self, code):
 		self.code = code
 		self.pos = 0
+		self.decimal = False
 
 	def parseCommand(self):
 		literal = self.needLiteral(maybe=True)
@@ -145,7 +146,8 @@ class Parser:
 		return ".CONVERT1251TOKOI8R", self.needBool()
 
 	def handleDecimalNumbers(self):
-		return ".DECIMALNUMBERS", self.needBool()
+		self.decimal = self.needBool()
+		return ".DECIMALNUMBERS", self.decimal
 
 	def handleInsertFile(self):
 		return ".INSERT_FILE", self.needString()
@@ -198,6 +200,209 @@ class Parser:
 				return char
 			else:
 				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+
+
+	def needInteger(self, maybe=False):
+		# Parse integer, starting with self.pos, and seek to
+		# its end. Return the integer in 'int' type.
+
+		with Transaction(self, maybe=maybe):
+			# Skip whitespace
+			try:
+				while self.code[self.pos] in whitespace:
+					self.pos += 1
+			except IndexError:
+				raise InvalidError("Expected integer, got EOF")
+
+			integer = ""
+			radix = None
+
+			while True:
+				if self.code[self.pos] == ".":
+					# Decimal
+					if integer == "":
+						raise InvalidError("Expected integer, got '.'")
+					else:
+						if radix is None:
+							radix = 10
+							break
+						else:
+							raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "hH":
+					# Hexadimical
+					if radix is None:
+						radix = 16
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "dD":
+					# Decimal
+					if radix is None:
+						radix = 10
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "bB":
+					# Binary
+					if radix is None:
+						radix = 2
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "oO":
+					# Octal
+					if radix is None:
+						radix = 8
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "xX" and integer == "0":
+					# Hexadimical
+					if radix is None:
+						radix = 16
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "bB" and integer == "0":
+					# Binary
+					if radix is None:
+						radix = 2
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.code[self.pos] in "oO" and integer == "0":
+					# Octal
+					if radix is None:
+						radix = 8
+						break
+					else:
+						raise InvalidError("Two (or more) radix specifiers")
+
+
+				try:
+					if self.code[self.pos] in whitespace + punctuation:
+						# Punctuation or whitespace
+						break
+				except IndexError:
+					# End
+					break
+
+				if self.code[self.pos].upper() in "0123456789ABCDEF":
+					integer += self.code[self.pos].upper()
+					self.pos += 1
+				else:
+					raise InvalidError("Expected integer, got '{}'".format(self.code[self.pos]))
+
+			if radix is None:
+				radix = 10 if self.decimal else 8
+
+			return int(integer, radix)
+
+
+	def needRaw(self):
+		# Return string till the end of the string (trimmed)
+
+		with Transaction(self, maybe=False):
+			string = ""
+
+			while True:
+				try:
+					if self.code[self.pos] in "\r\n":
+						# EOL
+						return string.strip()
+				except IndexError:
+					# EOF
+					return string.strip()
+
+				string += self.code[self.pos]
+				self.pos += 1
+
+
+	def needString(self, maybe=False):
+		# Return string between " and ", or / and /
+
+		with Transaction(self, maybe=maybe):
+			# Skip whitespace
+			try:
+				while self.code[self.pos] in whitespace:
+					self.pos += 1
+			except IndexError:
+				raise InvalidError("Expected string, got EOF")
+
+			punct = ""
+			if self.code[self.pos] in "\"/":
+				punct = self.code[self.pos]
+				self.pos += 1
+			else:
+				raise InvalidError("Expected string, got '{}'".format(self.code[self.pos]))
+
+			string = ""
+
+			while True:
+				try:
+					if self.code[self.pos] == "\\":
+						# Escape character
+						self.pos += 1
+
+						if self.code[self.pos] in "nN":
+							self.pos += 1
+							string += "\n"
+						elif self.code[self.pos] in "rR":
+							self.pos += 1
+							string += "\r"
+						elif self.code[self.pos] in "tT":
+							self.pos += 1
+							string += "\t"
+						elif self.code[self.pos] in "sS":
+							self.pos += 1
+							string += " "
+						elif self.code[self.pos] in "xX":
+							self.pos += 1
+							num = self.code[self.pos]
+							self.pos += 1
+							num += self.code[self.pos]
+							self.pos += 1
+							string += chr(int(num, 16))
+						elif self.code[self.pos] in "\\\"/":
+							self.pos += 1
+							string += self.code[self.pos]
+						else:
+							raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{}'".format(self.code[self.pos]))
+					elif self.code[self.pos] == punct:
+						# EOS
+						self.pos += 1
+						return string
+					else:
+						string += self.code[self.pos]
+						self.pos += 1
+				except IndexError:
+					# EOF
+					raise InvalidError("Expected string, got EOF")
+
+
+	def needBool(self, maybe=False):
+		# Handle ON, OFF, TRUE, FALSE, YES, NO
+
+		with Transaction(self, maybe=maybe):
+			# Skip whitespace
+			try:
+				while self.code[self.pos] in whitespace:
+					self.pos += 1
+			except IndexError:
+				raise InvalidError("Expected boolean, got EOF")
+
+			lit = self.needLiteral(maybe=True)
+			if lit in ("ON", "TRUE", "YES"):
+				return True
+			elif lit in ("OFF", "FALSE", "NO"):
+				return False
+			elif lit is not None:
+				raise InvalidError("Expected boolean, got '{}'".format(lit))
+			else:
+				try:
+					raise InvalidError("Expected boolean, got '{}'".format(self.code[self.pos]))
+				except IndexError:
+					raise InvalidError("Expected boolean, got EOF")
 
 
 class Transaction:
