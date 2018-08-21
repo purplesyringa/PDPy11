@@ -46,9 +46,17 @@ def infix(text, op):
 			return Deferred(Lambda(self, text, op, other))
 		else:
 			defer = Deferred(self)
-			defer.pending_math.append((text, op, other))
+			defer.pending_math.append((text, op, other, False))
 			return defer
 	return infix
+
+def rinfix(text, op):
+	def rinfix(self, other):
+		# Object . Deferred
+		defer = Deferred(self)
+		defer.pending_math.append((text, op, other, True))
+		return defer
+	return rinfix
 
 def prefix(text, op):
 	def prefix(self):
@@ -116,8 +124,11 @@ class Deferred(object):
 		try:
 			result = self.f(context)
 			# Handle padding math
-			for optext, op, other in self.pending_math:
-				result = op(result, other)
+			for optext, op, other, reverse in self.pending_math:
+				if reverse:
+					result = op(other, result)
+				else:
+					result = op(result, other)
 
 			while isinstance(result, Deferred):
 				result = result(context)
@@ -146,17 +157,17 @@ class Deferred(object):
 	__le__ = infix("<=", operator.le)
 	__ge__ = infix(">=", operator.ge)
 
-	__radd__ = infix("+", operator.add)
-	__rsub__ = infix("-", operator.sub)
-	__rmul__ = infix("*", operator.mul)
-	__rdiv__ = infix("//", operator.truediv)
-	__rfloordiv__ = infix("/", operator.floordiv)
-	__rmod__ = infix("%", operator.mod)
-	__rlshift__ = infix("<<", operator.lshift)
-	__rrshift__ = infix(">>", operator.rshift)
-	__rand__ = infix("&", operator.and_)
-	__ror__ = infix("|", operator.or_)
-	__rxor__ = infix("^", operator.xor)
+	__radd__ = rinfix("+", operator.add)
+	__rsub__ = rinfix("-", operator.sub)
+	__rmul__ = rinfix("*", operator.mul)
+	__rdiv__ = rinfix("//", operator.truediv)
+	__rfloordiv__ = rinfix("/", operator.floordiv)
+	__rmod__ = rinfix("%", operator.mod)
+	__rlshift__ = rinfix("<<", operator.lshift)
+	__rrshift__ = rinfix(">>", operator.rshift)
+	__rand__ = rinfix("&", operator.and_)
+	__ror__ = rinfix("|", operator.or_)
+	__rxor__ = rinfix("^", operator.xor)
 
 	__neg__ = prefix("-", operator.neg)
 	__pos__ = prefix("+", operator.pos)
@@ -167,8 +178,11 @@ class Deferred(object):
 			return "<Deferred>"
 
 		rpr = repr(self.f)
-		for optext, _, other in self.pending_math:
-			rpr = "({} {} {!r})".format(rpr, optext, other)
+		for optext, _, other, reverse in self.pending_math:
+			if reverse:
+				rpr = "({!r} {} {})".format(other, optext, rpr)
+			else:
+				rpr = "({} {} {!r})".format(rpr, optext, other)
 		return rpr
 
 	__int__ = convert(int)
