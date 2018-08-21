@@ -1,4 +1,5 @@
 import operator
+import inspect
 
 class Lambda(object):
 	def __init__(self, l, optext=None, op=None, r=None):
@@ -6,13 +7,13 @@ class Lambda(object):
 		self.optext = optext
 		self.op = op
 		self.r = r
-	def __call__(self):
+	def __call__(self, context):
 		if self.r is not None:
-			return self.op(self.l(), self.r())
+			return self.op(call(self.l, context), call(self.r, context))
 		elif self.op is not None:
-			return self.op(self.l())
+			return self.op(call(self.l, context))
 		elif callable(self.l):
-			return self.l()
+			return call(self.l, context)
 		else:
 			return self.l
 	def __repr__(self):
@@ -56,6 +57,17 @@ def convert(tp):
 		return tp(self())
 	return convert
 
+def call(f, context):
+	spec = inspect.getargspec(f)
+	varargs = spec.varargs is not None
+	kwargs = spec.keywords is not None
+
+	if len(spec.args) or varargs or kwargs:
+		return f(context)
+	else:
+		return f()
+
+
 class Deferred(object):
 	def __init__(self, f):
 		if isinstance(f, Deferred):
@@ -63,8 +75,8 @@ class Deferred(object):
 		else:
 			self.f = Lambda(f)
 
-	def __call__(self):
-		return self.f()
+	def __call__(self, context=None):
+		return self.f(context)
 
 	__add__ = infix("+", operator.add)
 	__sub__ = infix("-", operator.sub)
@@ -84,8 +96,8 @@ class Deferred(object):
 	__rdiv__ = infix("//", operator.truediv)
 	__rfloordiv__ = infix("/", operator.floordiv)
 	__rmod__ = infix("%", operator.mod)
-	__rlshift__ = infix("<<",operator.lshift)
-	__rrshift__ = infix(">>",operator.rshift)
+	__rlshift__ = infix("<<", operator.lshift)
+	__rrshift__ = infix(">>", operator.rshift)
 	__rand__ = infix("&", operator.and_)
 	__ror__ = infix("|", operator.or_)
 	__rxor__ = infix("^", operator.xor)
@@ -93,11 +105,11 @@ class Deferred(object):
 	__iadd__ = infixi("+", operator.add)
 	__isub__ = infixi("-", operator.sub)
 	__imul__ = infixi("*", operator.mul)
-	__idiv__ = infixi("/=/",operator.truediv)
+	__idiv__ = infixi("//", operator.truediv)
 	__ifloordiv__ = infixi("/", operator.floordiv)
 	__imod__ = infixi("%", operator.mod)
-	__ilshift__ = infixi("<<",operator.lshift)
-	__irshift__ = infixi(">>",operator.rshift)
+	__ilshift__ = infixi("<<", operator.lshift)
+	__irshift__ = infixi(">>", operator.rshift)
 	__iand__ = infixi("&", operator.and_)
 	__ior__ = infixi("|", operator.or_)
 	__ixor__ = infixi("^", operator.xor)
@@ -122,7 +134,7 @@ class Deferred(object):
 
 	def to(self, type):
 		self = Deferred(self)
-		return Deferred(lambda: type(self()))
+		return Deferred(lambda context: type(self(context)))
 
 
 	@classmethod
@@ -131,7 +143,7 @@ class Deferred(object):
 		true = cls(true)
 		false = cls(false)
 
-		return cls(lambda: true() if cond() else false())
+		return cls(lambda context: true(context) if cond(context) else false(context))
 
 	@classmethod
 	def Raise(cls, err):
@@ -145,10 +157,10 @@ class Deferred(object):
 	def And(cls, a, b):
 		a = cls(a)
 		b = cls(b)
-		return cls(lambda: a() and b())
+		return cls(lambda: a(context) and b(context))
 
 	@classmethod
 	def Or(cls, a, b):
 		a = cls(a)
 		b = cls(b)
-		return cls(lambda: a() or b())
+		return cls(lambda: a(context) or b(context))
