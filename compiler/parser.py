@@ -4,6 +4,7 @@ from . import commands
 
 whitespace = "\n\r\t "
 punctuation = ",!@#%^&*()[]\\{}|/~`'\";:?<>.+-="
+registers = ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "SP", "PC")
 
 class EndOfParsingError(Exception):
 	pass
@@ -315,6 +316,15 @@ class Parser:
 						reg = self.needRegister()
 						self.needPunct(")")
 						return (reg, 6), expr
+
+
+	def needRegister(self, maybe=False):
+		with Transaction(self, maybe=maybe):
+			literal = self.needLiteral()
+			if literal in registers:
+				return literal
+			else:
+				raise InvalidError("Expected register, got '%s'" % literal)
 
 
 	def needLiteral(self, maybe=False):
