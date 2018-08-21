@@ -147,6 +147,9 @@ class Deferred(object):
 		self = Deferred(self)
 		return Deferred(lambda context: type(self(context)))
 
+	def then(self, f):
+		return Deferred(lambda context: f(self(context)))
+
 
 	@classmethod
 	def If(cls, cond, true, false):
@@ -155,6 +158,19 @@ class Deferred(object):
 		false = cls(false)
 
 		return cls(lambda context: true(context) if cond(context) else false(context))
+
+	@classmethod
+	def Repeat(cls, count, what):
+		count = cls(count)
+		what = cls(what)
+
+		def f(context):
+			result = []
+			for i in range(count(context)):
+				result.append(what(context))
+			return result
+
+		return cls(f)
 
 	@classmethod
 	def Raise(cls, err):
