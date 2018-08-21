@@ -240,7 +240,9 @@ class Parser:
 			arg2 = self.needExpression()
 			return command_name, (arg1, arg2)
 		else:
-			raise InvalidError("Expected command name, got '%s'" % command_name)
+			raise InvalidError(
+				"Expected command name, got '{}'".format(command_name)
+			)
 
 
 	def needArgument(self, maybe=False):
@@ -334,7 +336,9 @@ class Parser:
 			if literal in registers:
 				return literal
 			else:
-				raise InvalidError("Expected register, got '%s'" % literal)
+				raise InvalidError(
+					"Expected register, got '{}'".format(literal)
+				)
 
 
 	def needExpression(self, maybe=False):
@@ -376,13 +380,14 @@ class Parser:
 					if a >= 256 or b >= 256:
 						raise InvalidError(
 							"Cannot fit two UTF characters in 1 word: " +
-							"'%s'" % string
+							"'{}'".format(string)
 						)
 					return Expression(a | (b << 8))
 				else:
 					raise InvalidError(
-						"Cannot fit %s characters in 1 word: '%s'" %
-						(len(string), string)
+						"Cannot fit {} characters in 1 word: '{}'".format(
+							len(string), string
+						)
 					)
 
 			# Integer
