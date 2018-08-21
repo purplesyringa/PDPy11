@@ -232,6 +232,91 @@ class Parser:
 			raise InvalidError("Expected command name, got '%s'" % command_name)
 
 
+	def needArgument(self, maybe=False):
+		# Parse Rn, (Rn) (as well as @Rn), (Rn)+, -(Rn), @(Rn)+, @-(Rn),
+		# expression(Rn) or @expression(Rn), and PC shortcuts: #expression,
+		# @#expression and @expression.
+
+		with Transaction(self, maybe=maybe):
+			if self.needPunct("(", maybe=True):
+				# (Rn) or (Rn)+
+				reg = self.needRegister()
+				self.needPunct(")")
+
+				if self.needPunct("+", maybe=True):
+					# (Rn)+
+					return (reg, 2), None
+				else:
+					# (Rn)
+					return (reg, 1), None
+			elif self.needPunct("@", maybe=True):
+				# @Rn, @(Rn)+, @-(Rn), @expression(Rn), @(Rn), @#expression or
+				# @expression
+
+				if self.needPunct("#", maybe=True):
+					# @#expression = (PC)+
+					expr = self.needExpression()
+					return ("PC", 2), expr
+				elif self.needPunct("(", maybe=True):
+					# @(Rn)+ or @(Rn)
+					reg = self.needRegister()
+					self.needPunct(")")
+					if self.needPunct("+", maybe=True):
+						# @(Rn)+
+						return (reg, 4), None
+					else:
+						# @0(Rn)
+						return (reg, 7), 0
+				elif self.needPunct("-", maybe=True):
+					# @-(Rn)
+					self.needPunct("(")
+					reg = self.needRegister()
+					self.needPunct(")")
+					return (reg, 5), None
+
+				reg = self.needRegister(maybe=True)
+				if reg is not None:
+					# @Rn = (Rn)
+					return (reg, 1), None
+				else:
+					# @expression(Rn) or @expression
+					expr = self.needExpression()
+
+					if self.needPunct("(", maybe=True):
+						# @expression(Rn)
+						reg = self.needRegister()
+						self.needPunct(")")
+						return (reg, 7), expr
+					else:
+						# @expression
+						return ("PC", 7), expr.asOffset()
+			else:
+				# Rn, -(Rn), expression(Rn) or #expression
+				if self.needPunct("-", maybe=True):
+					# -(Rn)
+					self.needPunct("(")
+					reg = self.needRegister()
+					self.needPunct(")")
+					return (reg, 3), None
+				elif self.needPunct("#"):
+					# #expression = (PC)+
+					expr = self.needExpression()
+					return ("PC", 2), expr
+				else:
+					# Rn or expression(Rn)
+					reg = self.needRegister(maybe=True)
+					if reg is not None:
+						# Rn
+						return (reg, 0), None
+					else:
+						# expression(Rn)
+						expr = self.needExpression()
+						self.needPunct("(")
+						reg = self.needRegister()
+						self.needPunct(")")
+						return (reg, 6), expr
+
+
 	def needLiteral(self, maybe=False):
 		# Parse literal, starting with self.pos, and seek to
 		# its end. Return the literal in upper case.
