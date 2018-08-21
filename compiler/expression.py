@@ -3,7 +3,7 @@ from .deferred import Deferred
 
 class Expression:
 	def __new__(cls, s):
-		return Deferred(Expression.Get(s))
+		return Deferred(cls.Get(s))
 
 	class Get:
 		def __init__(self, s):
@@ -21,4 +21,4 @@ class Expression:
 				return Deferred(context.labels[self.s])
 
 		def deferredRepr(self):
-			return str(self.s)
+			return "Expression({})".format(self.s)
