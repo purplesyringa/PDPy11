@@ -1,4 +1,5 @@
 import os
+from . import commands
 
 
 whitespace = "\n\r\t "
@@ -121,7 +122,7 @@ class Parser:
 			return
 
 		# It's a command
-		print("simple command", literal)
+		yield self.handleCommand(literal), labels
 
 
 
@@ -191,6 +192,44 @@ class Parser:
 
 	def handleInsertFile(self):
 		return ".INSERT_FILE", self.needString()
+
+	def handleCommand(self, command_name):
+		if command_name in commands.zero_arg_commands:
+			# No arguments expected
+			return command_name, ()
+		elif command_name in commands.one_arg_commands:
+			# Need exactly 1 argument
+			arg = self.needArgument()
+			return command_name, (arg,)
+		elif command_name in commands.jmp_commands:
+			# Need 1 label, or relative address
+			arg = self.needExpression()
+			return command_name, (arg,)
+		elif command_name in commands.imm_arg_commands:
+			# Need 1 expression
+			arg = self.needExpression()
+			return command_name, (arg,)
+		elif command_name in commands.two_arg_commands:
+			# Need exactly 2 arguments
+			arg1 = self.needArgument()
+			arg2 = self.needArgument()
+			return command_name, (arg1, arg2)
+		elif command_name in commands.reg_commands:
+			# Need register & argument
+			arg1 = self.needRegister()
+			arg2 = self.needArgument()
+			return command_name, (arg1, arg2)
+		elif command_name == "RTS":
+			# Need register
+			arg = self.needRegister()
+			return command_name, (arg,)
+		elif command_name == "SOB":
+			# Need register & relative address (or label)
+			arg1 = self.needRegister()
+			arg2 = self.needExpression()
+			return command_name, (arg1, arg2)
+		else:
+			raise InvalidError("Expected command name, got '%s'" % command_name)
 
 
 	def needLiteral(self, maybe=False):
