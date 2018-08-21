@@ -36,6 +36,15 @@ class Compiler:
 
 		self.compileFile(file, code)
 
+	def resolve(self, from_, file):
+		# Resolve file path
+		if file.startswith("/") or file[1:3] == ":\\":
+			# Absolute
+			return file
+		else:
+			# Relative
+			return os.path.join(os.path.dirname(from_), file)
+
 	def link(self):
 		array = []
 		for addr, value in self.writes:
@@ -121,8 +130,8 @@ class Compiler:
 			elif command == ".DECIMALNUMBERS":
 				pass
 			elif command == ".INSERT_FILE":
-				with open(arg) as f:
-					self.writeBytes([ord(char) for char in f.read()])
+				with open(self.resolve(file, arg), "rb") as f:
+					self.writeBytes([char for char in f.read()])
 			else:
 				# It's a simple command
 				if command in commands.zero_arg_commands:
@@ -258,11 +267,11 @@ class Compiler:
 
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
-		self.PC = self.PC + bytes_.then(len)
+		self.PC = self.PC + Deferred(bytes_).then(len)
 
 	def writeWords(self, words):
 		self.writes.append((self.PC, words))
-		self.PC = self.PC + words.then(len) * 2
+		self.PC = self.PC + Deferred(words).then(len) * 2
 
 
 	def encodeRegister(self, reg):
