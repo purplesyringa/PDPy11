@@ -210,7 +210,7 @@ class Compiler:
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(octal(offset))))
 							if offset % 2 == 1
-							else offset
+							else offset // 2
 						))
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Too far SOB: {} words".format(octal(offset))))
