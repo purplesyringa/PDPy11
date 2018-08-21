@@ -132,6 +132,12 @@ class Compiler:
 			elif command == ".INSERT_FILE":
 				with open(self.resolve(file, arg), "rb") as f:
 					self.writeBytes([char for char in f.read()])
+			elif command == ".EQU":
+				name, value = arg
+				if name in self.labels:
+					raise CompilerError("Redefinition of label {}".format(name))
+
+				self.labels[name] = value
 			else:
 				# It's a simple command
 				if command in commands.zero_arg_commands:
