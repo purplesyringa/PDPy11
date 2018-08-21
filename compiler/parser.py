@@ -444,11 +444,7 @@ class Parser:
 
 		with Transaction(self, maybe=maybe):
 			# Skip whitespace
-			try:
-				while self.code[self.pos] in whitespace:
-					self.pos += 1
-			except IndexError:
-				raise InvalidError("Expected literal, got EOF")
+			self.skipWhitespace()
 
 			literal = ""
 
@@ -478,11 +474,7 @@ class Parser:
 	def needPunct(self, char, maybe=False):
 		with Transaction(self, maybe=maybe):
 			# Skip whitespace
-			try:
-				while self.code[self.pos] in whitespace:
-					self.pos += 1
-			except IndexError:
-				raise InvalidError("Expected literal, got EOF")
+			self.skipWhitespace()
 
 			if self.code[self.pos] == char:
 				self.pos += 1
@@ -497,11 +489,7 @@ class Parser:
 
 		with Transaction(self, maybe=maybe):
 			# Skip whitespace
-			try:
-				while self.code[self.pos] in whitespace:
-					self.pos += 1
-			except IndexError:
-				raise InvalidError("Expected integer, got EOF")
+			self.skipWhitespace()
 
 			integer = ""
 			radix = None
@@ -620,11 +608,7 @@ class Parser:
 
 		with Transaction(self, maybe=maybe):
 			# Skip whitespace
-			try:
-				while self.code[self.pos] in whitespace:
-					self.pos += 1
-			except IndexError:
-				raise InvalidError("Expected string, got EOF")
+			self.skipWhitespace()
 
 			punct = ""
 			if self.code[self.pos] in "\"/":
@@ -682,11 +666,7 @@ class Parser:
 
 		with Transaction(self, maybe=maybe):
 			# Skip whitespace
-			try:
-				while self.code[self.pos] in whitespace:
-					self.pos += 1
-			except IndexError:
-				raise InvalidError("Expected boolean, got EOF")
+			self.skipWhitespace()
 
 			lit = self.needLiteral(maybe=True)
 			if lit in ("ON", "TRUE", "YES"):
@@ -706,13 +686,39 @@ class Parser:
 
 		# Skip whitespace
 		try:
-			while self.code[self.pos] in whitespace:
-				self.pos += 1
-		except IndexError:
+			self.skipWhitespace()
+		except InvalidError:
 			return True
 
 		self.pos = pos
 		return False
+
+	def skipWhitespace(self):
+		try:
+			skipped = True
+			while skipped:
+				skipped = False
+
+				# Skip whitespace
+				while self.code[self.pos] in whitespace:
+					skipped = True
+					self.pos += 1
+
+				# Skip ; comment
+				if self.code[self.pos] == ";":
+					# Comment
+					skipped = True
+					while self.code[self.pos] != "\n":
+						self.pos += 1
+
+				# Skip // comment
+				if self.code[self.pos:self.pos + 2] == "//":
+					# Comment
+					skipped = True
+					while self.code[self.pos] != "\n":
+						self.pos += 1
+		except IndexError:
+			raise InvalidError("Got EOF")
 
 
 class Transaction:
