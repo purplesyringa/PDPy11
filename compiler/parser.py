@@ -269,39 +269,39 @@ class Parser:
 
 				if self.needPunct("+", maybe=True):
 					# (Rn)+
-					return (reg, 2), None
+					return (reg, "(Rn)+"), None
 				else:
 					# (Rn)
-					return (reg, 1), None
+					return (reg, "(Rn)"), None
 			elif self.needPunct("@", maybe=True):
 				# @Rn, @(Rn)+, @-(Rn), @expression(Rn), @(Rn), @#expression or
 				# @expression
 
 				if self.needPunct("#", maybe=True):
-					# @#expression = (PC)+
+					# @#expression = @(PC)+
 					expr = self.needExpression()
-					return ("PC", 2), expr
+					return ("PC", "@(Rn)+"), expr
 				elif self.needPunct("(", maybe=True):
 					# @(Rn)+ or @(Rn)
 					reg = self.needRegister()
 					self.needPunct(")")
 					if self.needPunct("+", maybe=True):
 						# @(Rn)+
-						return (reg, 4), None
+						return (reg, "@(Rn)+"), None
 					else:
 						# @0(Rn)
-						return (reg, 7), Expression(0)
+						return (reg, "@N(Rn)"), Expression(0)
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
-					return (reg, 5), None
+					return (reg, "@-(Rn)"), None
 
 				reg = self.needRegister(maybe=True)
 				if reg is not None:
 					# @Rn = (Rn)
-					return (reg, 1), None
+					return (reg, "(Rn)"), None
 				else:
 					# @expression(Rn) or @expression
 					expr = self.needExpression()
@@ -310,10 +310,10 @@ class Parser:
 						# @expression(Rn)
 						reg = self.needRegister()
 						self.needPunct(")")
-						return (reg, 7), expr
+						return (reg, "@N(Rn)"), expr
 					else:
 						# @expression
-						return ("PC", 7), Expression.asOffset(expr)
+						return ("PC", "@N(Rn)"), Expression.asOffset(expr)
 			else:
 				# Rn, -(Rn), expression(Rn), expression or #expression
 				if self.needPunct("-", maybe=True):
@@ -321,17 +321,17 @@ class Parser:
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
-					return (reg, 3), None
+					return (reg, "-(Rn)"), None
 				elif self.needPunct("#", maybe=True):
 					# #expression = (PC)+
 					expr = self.needExpression()
-					return ("PC", 2), expr
+					return ("PC", "(Rn)+"), expr
 				else:
 					# Rn, expression(Rn) or expression
 					reg = self.needRegister(maybe=True)
 					if reg is not None:
 						# Rn
-						return (reg, 0), None
+						return (reg, "Rn"), None
 					else:
 						# expression(Rn) or expression
 						expr = self.needExpression()
@@ -339,10 +339,10 @@ class Parser:
 							# expression(Rn)
 							reg = self.needRegister()
 							self.needPunct(")")
-							return (reg, 6), expr
+							return (reg, "N(Rn)"), expr
 						else:
 							# expression = expression - ...(PC)
-							return ("PC", 6), Expression.asOffset(expr)
+							return ("PC", "N(Rn)"), Expression.asOffset(expr)
 
 
 	def needRegister(self, maybe=False):

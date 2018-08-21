@@ -269,7 +269,9 @@ class Compiler:
 			return 7
 		else:
 			return ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7").index(reg)
+	def encodeAddr(self, addr):
+		return ("Rn", "(Rn)", "(Rn)+", "@(Rn)+", "-(Rn)", "@-(Rn)", "N(Rn)", "@N(Rn)").index(addr)
 
 	def encodeArg(self, arg):
 		(reg, addr), _ = arg
-		return (addr << 3) | self.encodeRegister(reg)
+		return (self.encodeAddr(addr) << 3) | self.encodeRegister(reg)
