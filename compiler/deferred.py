@@ -57,7 +57,6 @@ def convert(tp):
 	return convert
 
 def call(f, context):
-	print("call", repr(f))
 	spec = inspect.getargspec(f)
 	args = len(spec.args)
 	varargs = spec.varargs is not None
