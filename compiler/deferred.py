@@ -13,10 +13,8 @@ class Lambda(object):
 			return self.op(call(self.l, context), call(self.r, context))
 		elif self.op is not None:
 			return self.op(call(self.l, context))
-		elif callable(self.l):
-			return call(self.l, context)
 		else:
-			return self.l
+			return call(self.l, context)
 	def __repr__(self):
 		if self.r is not None:
 			return "({!r} {} {!r})".format(self.l, self.optext, self.r)
@@ -57,7 +55,14 @@ def convert(tp):
 	return convert
 
 def call(f, context):
-	spec = inspect.getargspec(f)
+	if not callable(f):
+		return f
+
+	try:
+		spec = inspect.getargspec(f)
+	except TypeError:
+		spec = inspect.getargspec(f.__call__)
+
 	args = len(spec.args)
 	varargs = spec.varargs is not None
 	kwargs = spec.keywords is not None
