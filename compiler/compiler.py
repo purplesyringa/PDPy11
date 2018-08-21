@@ -1,5 +1,7 @@
 import os
 from .parser import Parser, EndOfParsingError
+from .deferred import Deferred
+from . import commands
 
 class CompilerError(Exception):
 	pass
@@ -36,7 +38,7 @@ class Compiler:
 		for (command, arg), labels in parser.parse():
 			for label in labels:
 				if label in self.labels:
-					raise CompilerError("Redefinition of label {}")
+					raise CompilerError("Redefinition of label {}".format(label))
 
 				self.labels[label] = self.PC
 
@@ -101,45 +103,35 @@ class Compiler:
 				print(command, arg, labels)
 
 
-	def writeByte(self, byte):
-		byte = Deferred.If(
-			lambda: byte >= 256,
-			Deferred.Raise(CompilerError("Byte {} is too big".format(byte))),
-			byte
-		)
-		byte = Deferred.If(
-			lambda: byte < -256,
-			Deferred.Raise(CompilerError("Byte {} is too small".format(byte))),
-			byte
-		)
 
-		# Negative to positive
-		byte = Deferred.If(
-			lambda: byte < 0,
-			byte + 256,
-			byte
+
+	def writeByte(self, byte):
+		byte = (Deferred(byte)
+			.then(lambda byte: (
+				Deferred.Raise(CompilerError("Byte {} is too big".format(byte)))
+				if byte >= 256 else 0
+			))
+			.then(lambda byte: (
+				Deferred.Raise(CompilerError("Byte {} is too small".format(byte)))
+				if byte < -256 else 0
+			))
+			.then(lambda byte: byte + 256 if byte < 0 else byte)
 		)
 
 		self.writes.append((self.PC, byte))
 		self.PC = self.PC + 1
 
 	def writeWord(self, word):
-		word = Deferred.If(
-			lambda: word >= 65536,
-			Deferred.Raise(CompilerError("Word {} is too big".format(word))),
-			word
-		)
-		word = Deferred.If(
-			lambda: word < -65536,
-			Deferred.Raise(CompilerError("Word {} is too small".format(word))),
-			word
-		)
-
-		# Negative to positive
-		word = Deferred.If(
-			lambda: word < 0,
-			word + 65536,
-			word
+		word = (Deferred(word)
+			.then(lambda word: (
+				Deferred.Raise(CompilerError("Word {} is too big".format(word)))
+				if word >= 65536 else 0
+			))
+			.then(lambda word: (
+				Deferred.Raise(CompilerError("Word {} is too small".format(word)))
+				if word < -65536 else 0
+			))
+			.then(lambda word: word + 65536 if word < 0 else word)
 		)
 
 		self.writes.append((self.PC, word & 0xFF))
