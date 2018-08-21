@@ -18,6 +18,7 @@ class Parser:
 		self.pos = 0
 		self.decimal = False
 		self.syntax = syntax
+		self.last_label = ""
 
 	def parse(self):
 		try:
@@ -118,11 +119,21 @@ class Parser:
 				raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
 
 		if literal is None:
-			raise InvalidError("Expected COMMAND, LABEL: or .COMMAND")
+			# Maybe integer label?
+			label = self.needInteger()
+			self.needPunct(":")
+
+			# It's a label
+			label = "{}@{}".format(self.last_label, label)
+			for cmd in self.parseCommand(labels=labels + [label]):
+				yield cmd
+			return
+
 
 		# It is either a command or a label
 		if self.needPunct(":", maybe=True):
 			# It's a label
+			self.last_label = literal
 			for cmd in self.parseCommand(labels=labels + [literal]):
 				yield cmd
 			return
@@ -211,12 +222,12 @@ class Parser:
 			return command_name, (arg,)
 		elif command_name in commands.jmp_commands:
 			# Need 1 label, or relative address
-			arg = self.needExpression()
-			return command_name, (arg,)
+			expr = self.needExpression(isLabel=True)
+			return command_name, (expr,)
 		elif command_name in commands.imm_arg_commands:
 			# Need 1 expression
-			arg = self.needExpression()
-			return command_name, (arg,)
+			expr = self.needExpression()
+			return command_name, (expr,)
 		elif command_name in commands.two_arg_commands:
 			# Need exactly 2 arguments
 			arg1 = self.needArgument()
@@ -225,20 +236,20 @@ class Parser:
 			return command_name, (arg1, arg2)
 		elif command_name in commands.reg_commands:
 			# Need register & argument
-			arg1 = self.needRegister()
+			reg1 = self.needRegister()
 			self.needPunct(",")
 			arg2 = self.needArgument()
-			return command_name, (arg1, arg2)
+			return command_name, (reg1, arg2)
 		elif command_name == "RTS":
 			# Need register
-			arg = self.needRegister()
-			return command_name, (arg,)
+			reg = self.needRegister()
+			return command_name, (reg,)
 		elif command_name == "SOB":
 			# Need register & relative address (or label)
-			arg1 = self.needRegister()
+			reg1 = self.needRegister()
 			self.needPunct(",")
-			arg2 = self.needExpression()
-			return command_name, (arg1, arg2)
+			arg2 = self.needExpression(isLabel=True)
+			return command_name, (reg1, arg2)
 		else:
 			raise InvalidError(
 				"Expected command name, got '{}'".format(command_name)
@@ -247,8 +258,8 @@ class Parser:
 
 	def needArgument(self, maybe=False):
 		# Parse Rn, (Rn) (as well as @Rn), (Rn)+, -(Rn), @(Rn)+, @-(Rn),
-		# expression(Rn) or @expression(Rn), and PC shortcuts: #expression,
-		# @#expression and @expression.
+		# expression(Rn), @expression(Rn), and PC shortcuts: #expression,
+		# @#expression, @expression and expression.
 
 		with Transaction(self, maybe=maybe):
 			if self.needPunct("(", maybe=True):
@@ -279,7 +290,7 @@ class Parser:
 						return (reg, 4), None
 					else:
 						# @0(Rn)
-						return (reg, 7), 0
+						return (reg, 7), Expression(0)
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
 					self.needPunct("(")
@@ -302,9 +313,9 @@ class Parser:
 						return (reg, 7), expr
 					else:
 						# @expression
-						return ("PC", 7), expr.asOffset()
+						return ("PC", 7), Expression.asOffset(expr)
 			else:
-				# Rn, -(Rn), expression(Rn) or #expression
+				# Rn, -(Rn), expression(Rn), expression or #expression
 				if self.needPunct("-", maybe=True):
 					# -(Rn)
 					self.needPunct("(")
@@ -316,18 +327,22 @@ class Parser:
 					expr = self.needExpression()
 					return ("PC", 2), expr
 				else:
-					# Rn or expression(Rn)
+					# Rn, expression(Rn) or expression
 					reg = self.needRegister(maybe=True)
 					if reg is not None:
 						# Rn
 						return (reg, 0), None
 					else:
-						# expression(Rn)
+						# expression(Rn) or expression
 						expr = self.needExpression()
-						self.needPunct("(")
-						reg = self.needRegister()
-						self.needPunct(")")
-						return (reg, 6), expr
+						if self.needPunct("(", maybe=True):
+							# expression(Rn)
+							reg = self.needRegister()
+							self.needPunct(")")
+							return (reg, 6), expr
+						else:
+							# expression = expression - ...(PC)
+							return ("PC", 6), Expression.asOffset(expr)
 
 
 	def needRegister(self, maybe=False):
@@ -341,23 +356,24 @@ class Parser:
 				)
 
 
-	def needExpression(self, maybe=False):
+	def needExpression(self, isLabel=False, maybe=False):
 		with Transaction(self, maybe=maybe):
 			if self.syntax == "pdp11asm":
-				value = self.needValue()
+				value = self.needValue(isLabel=isLabel)
 
 				while True:
 					if self.needPunct("+", maybe=True):
-						value += self.needValue()
+						value += self.needValue(isLabel=isLabel)
 					elif self.needPunct("-", maybe=True):
-						value -= self.needValue()
+						value -= self.needValue(isLabel=isLabel)
 					elif self.needPunct("*", maybe=True):
-						value *= self.needValue()
+						value *= self.needValue(isLabel=isLabel)
 					elif self.needPunct("/", maybe=True):
-						value //= self.needValue()
+						value //= self.needValue(isLabel=isLabel)
 					else:
 						break
 
+				value.isOffset = False
 				return value
 			else:
 				raise NotImplementedError(
@@ -365,7 +381,7 @@ class Parser:
 				)
 
 
-	def needValue(self, maybe=False):
+	def needValue(self, isLabel=False, maybe=False):
 		with Transaction(self, maybe=maybe):
 			# Char (or two)
 			string = self.needString(maybe=True)
@@ -393,7 +409,11 @@ class Parser:
 			# Integer
 			integer = self.needInteger(maybe=True)
 			if integer is not None:
-				return Expression(integer)
+				# Label?
+				if isLabel:
+					return Expression("{}@{}".format(self.last_label, integer))
+				else:
+					return Expression(integer)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
@@ -480,6 +500,7 @@ class Parser:
 						raise InvalidError("Expected integer, got '.'")
 					else:
 						if radix is None:
+							self.pos += 1
 							radix = 10
 							break
 						else:
@@ -487,6 +508,7 @@ class Parser:
 				elif self.code[self.pos] in "hH":
 					# Hexadimical
 					if radix is None:
+						self.pos += 1
 						radix = 16
 						break
 					else:
@@ -494,6 +516,7 @@ class Parser:
 				elif self.code[self.pos] in "dD":
 					# Decimal
 					if radix is None:
+						self.pos += 1
 						radix = 10
 						break
 					else:
@@ -501,6 +524,7 @@ class Parser:
 				elif self.code[self.pos] in "bB":
 					# Binary
 					if radix is None:
+						self.pos += 1
 						radix = 2
 						break
 					else:
@@ -508,6 +532,7 @@ class Parser:
 				elif self.code[self.pos] in "oO":
 					# Octal
 					if radix is None:
+						self.pos += 1
 						radix = 8
 						break
 					else:
@@ -515,6 +540,7 @@ class Parser:
 				elif self.code[self.pos] in "xX" and integer == "0":
 					# Hexadimical
 					if radix is None:
+						self.pos += 1
 						radix = 16
 						break
 					else:
@@ -522,6 +548,7 @@ class Parser:
 				elif self.code[self.pos] in "bB" and integer == "0":
 					# Binary
 					if radix is None:
+						self.pos += 1
 						radix = 2
 						break
 					else:
@@ -529,6 +556,7 @@ class Parser:
 				elif self.code[self.pos] in "oO" and integer == "0":
 					# Octal
 					if radix is None:
+						self.pos += 1
 						radix = 8
 						break
 					else:

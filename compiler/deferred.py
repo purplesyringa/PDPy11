@@ -10,6 +10,14 @@ class Lambda(object):
 		self.r = r
 	def __call__(self, context):
 		if self.r is not None:
+			# Optimize A - A
+			if (
+				self.l is self.r and
+				self.op is operator.sub and
+				isinstance(self.l, int)
+			):
+				return 0
+
 			return self.op(call(self.l, context), call(self.r, context))
 		elif self.op is not None:
 			return self.op(call(self.l, context))
@@ -34,18 +42,15 @@ class Lambda(object):
 def infix(text, op):
 	def infix(self, other):
 		other = Deferred(other)
+		if self.isReady() and other.isReady():
+			return Deferred(op(self(), other()))
 		return Deferred(Lambda(self, text, op, other))
 	return infix
 
-def infixi(text, op):
-	def infixi(self, other):
-		other = Deferred(other)
-		self.f = Lambda(Deferred(self.f), text, op, other)
-		return self
-	return infixi
-
 def prefix(text, op):
 	def prefix(self):
+		if self.isReady():
+			return Deferred(op(self()))
 		return Deferred(Lambda(self, text, op))
 	return prefix
 
@@ -72,9 +77,6 @@ def call(f, context):
 		args -= 1 # self
 	elif isinstance(f, types.FunctionType):
 		pass
-	elif hasattr(f, "__call__"):
-		# Callable object
-		return call(f.__call__, context)
 
 	if args >= 1 or varargs or kwargs:
 		return f(context)
@@ -86,11 +88,23 @@ class Deferred(object):
 	def __init__(self, f):
 		if isinstance(f, Deferred):
 			self.f = f.f
+			self.isReady = f.isReady
 		else:
 			self.f = Lambda(f)
 
+			if hasattr(f, "is_ready"):
+				self.isReady = lambda: f.is_ready
+			elif hasattr(f, "isReady"):
+				self.isReady = f.isReady
+			else:
+				self.isReady = lambda: not callable(f)
+
 	def __call__(self, context=None):
-		return self.f(context)
+		print("Call", repr(self))
+		result = self.f(context)
+		while isinstance(result, Deferred):
+			result = result(context);
+		return result
 
 	__add__ = infix("+", operator.add)
 	__sub__ = infix("-", operator.sub)
@@ -121,18 +135,6 @@ class Deferred(object):
 	__rand__ = infix("&", operator.and_)
 	__ror__ = infix("|", operator.or_)
 	__rxor__ = infix("^", operator.xor)
-
-	__iadd__ = infixi("+", operator.add)
-	__isub__ = infixi("-", operator.sub)
-	__imul__ = infixi("*", operator.mul)
-	__idiv__ = infixi("//", operator.truediv)
-	__ifloordiv__ = infixi("/", operator.floordiv)
-	__imod__ = infixi("%", operator.mod)
-	__ilshift__ = infixi("<<", operator.lshift)
-	__irshift__ = infixi(">>", operator.rshift)
-	__iand__ = infixi("&", operator.and_)
-	__ior__ = infixi("|", operator.or_)
-	__ixor__ = infixi("^", operator.xor)
 
 	__neg__ = prefix("-", operator.neg)
 	__pos__ = prefix("+", operator.pos)

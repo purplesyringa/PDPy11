@@ -2,6 +2,8 @@ import os
 from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from . import commands
+from . import util
+from .expression import Expression
 
 def octal(n):
 	return oct(int(n)).replace("0o", "")
@@ -37,18 +39,18 @@ class Compiler:
 	def link(self):
 		array = []
 		for addr, value in self.writes:
-			value = Deferred(value)()
+			value = Deferred(value)(self)
 
 			if not isinstance(value, list):
 				value = [value]
 
 			for i, value1 in enumerate(value):
-				offset = int(addr + i)
+				offset = Deferred(addr + i)(self)
 				if offset >= len(array):
 					array += [0] * (offset - len(array) + 1)
 				array[offset] = value1
 
-		self.link_address = int(self.link_address)
+		self.link_address = Deferred(self.link_address)(self)
 		self.output = bytes(array[self.link_address:])
 		return self.build
 
@@ -89,7 +91,7 @@ class Compiler:
 			elif command == ".EVEN":
 				self.writeBytes(
 					Deferred.If(
-						lambda: self.PC % 2 == 0,
+						self.PC % 2 == 0,
 						[],
 						[0]
 					)
@@ -97,7 +99,7 @@ class Compiler:
 			elif command == ".ALIGN":
 				self.writeBytes(
 					Deferred.If(
-						lambda: self.PC % arg == 0,
+						self.PC % arg == 0,
 						[],
 						Deferred.Repeat(
 							arg - self.PC % arg,
@@ -147,7 +149,7 @@ class Compiler:
 
 					self.writeWord(
 						(commands.jmp_commands[command] << 6) |
-						self.int8ToUint8(offset)
+						util.int8ToUint8(offset)
 					)
 				elif command in commands.imm_arg_commands:
 					max_imm_value = commands.imm_arg_commands[command][1]
@@ -165,7 +167,7 @@ class Compiler:
 						))
 					)
 
-					self.writeWord(commands.imm_arg_commands[command][0] | value)
+					self.writeWord(commands.imm_arg_commands[command][0] | (value // 2))
 				elif command in commands.two_arg_commands:
 					self.writeWord(
 						commands.two_arg_commands[command] |
@@ -200,12 +202,19 @@ class Compiler:
 					self.writeWord(
 						0o077000 |
 						(self.encodeRegister(arg[0]) << 6) |
-						offset
+						(offset // 2)
 					)
 				else:
 					raise CompilerError("Unknown command {}".format(command))
 
-				for _, additional in arg:
+				for arg1 in arg:
+					if isinstance(arg1, tuple):
+						_, additional = arg1
+					elif isinstance(arg1, (int, Expression)):
+						additional = arg1
+					else:
+						additional = None
+
 					if additional is not None:
 						self.writeWord(additional)
 
@@ -215,11 +224,11 @@ class Compiler:
 		byte = (Deferred(byte)
 			.then(lambda byte: (
 				Deferred.Raise(CompilerError("Byte {} is too big".format(octal(byte))))
-				if byte >= 256 else word
+				if byte >= 256 else byte
 			))
 			.then(lambda byte: (
 				Deferred.Raise(CompilerError("Byte {} is too small".format(octal(byte))))
-				if byte < -256 else word
+				if byte < -256 else byte
 			))
 			.then(lambda byte: byte + 256 if byte < 0 else byte)
 		)
@@ -246,11 +255,11 @@ class Compiler:
 
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
-		self.PC = self.PC + Deferred(lambda: len(bytes_))
+		self.PC = self.PC + bytes_.then(len)
 
 	def writeWords(self, words):
 		self.writes.append((self.PC, words))
-		self.PC = self.PC + Deferred(lambda: len(words)) * 2
+		self.PC = self.PC + words.then(len) * 2
 
 
 	def encodeRegister(self, reg):

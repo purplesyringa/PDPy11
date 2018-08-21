@@ -211,12 +211,16 @@ for file in files:
 
 out_files = compiler.link()
 
-for ext, file in out_files:
-	if file is None:
-		file = output_noext + "." + ext
+if project is None:
+	# Single file mode
+	for ext, file in out_files:
+		if file is None:
+			file = output_noext + "." + ext
 
-	with open(file, "wb") as f:
-		f.write(encodeBinRaw(ext == "bin", compiler))
+		with open(file, "wb") as f:
+			f.write(encodeBinRaw(ext == "bin", compiler))
 
-output_stream = open(output, "wb")
-output_stream.write(encodeBinRaw(isBin, compiler))
+if len(out_files) == 0 or project is not None:
+	# Project mode / no out file
+	output_stream = open(output, "wb")
+	output_stream.write(encodeBinRaw(isBin, compiler))

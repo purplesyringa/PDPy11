@@ -1,3 +1,5 @@
+from .deferred import Deferred
+
 def encodeBinRaw(isBin, compiler):
 	raw = compiler.output
 	if isBin:
@@ -9,3 +11,17 @@ def encodeBinRaw(isBin, compiler):
 		]) + raw
 	else:
 		return raw
+
+
+def int8ToUint8(int8):
+	if isinstance(int8, Deferred):
+		return Deferred.If(
+			int8 < 0,
+			int8 + 256,
+			int8
+		)
+	else:
+		if int8 < 0:
+			return int8 + 256
+		else:
+			return int8

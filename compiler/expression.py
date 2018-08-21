@@ -9,16 +9,23 @@ class Expression:
 		def __init__(self, s):
 			self.s = s
 
-		def __call__(self):
-			if self.s == ".":
-				# . (dot)
-				return context.PC
-			elif isinstance(self.s, int):
+		def __call__(self, compiler):
+			if isinstance(self.s, int):
 				# Integer
 				return self.s
+			elif isinstance(self.s, str) and self.s == ".":
+				# . (dot)
+				return compiler.PC
 			else:
 				# Label
-				return Deferred(context.labels[self.s])
+				return Deferred(lambda: compiler.labels[self.s])
 
 		def deferredRepr(self):
-			return "Expression({})".format(self.s)
+			return "Expression({!r})".format(self.s)
+		def isReady(self):
+			return isinstance(self.s, int)
+
+	@staticmethod
+	def asOffset(expr):
+		expr.isOffset = True
+		return expr
