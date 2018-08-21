@@ -100,8 +100,91 @@ class Compiler:
 				with open(arg) as f:
 					self.writeBytes([ord(char) for char in f.read()])
 			else:
-				print(command, arg, labels)
+				# It's a simple command
+				if command in commands.zero_arg_commands:
+					self.writeWord(commands.zero_arg_commands[command])
+				elif command in commands.one_arg_commands:
+					self.writeWord(
+						(commands.one_arg_commands[command] << 6) |
+						self.encodeArg(arg[0])
+					)
+				elif command in commands.jmp_commands:
+					offset = arg[0] - self.PC - 2
+					offset = (Deferred(offset)
+						.then(lambda offset: (
+							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(offset)))
+							if offset % 2 == 1
+							else offset
+						))
+						.then(lambda offset: (
+							Deferred.Raise(CompilerError("Too far branch: {} words".format(offset)))
+							if offset < -128 or offset > 127
+							else offset
+						))
+					)
 
+					self.writeWord(
+						(commands.jmp_commands[command] << 6) |
+						self.int8ToUint8(offset)
+					)
+				elif command in commands.imm_arg_commands:
+					max_imm_value = commands.imm_arg_commands[command][1]
+
+					value = (Deferred(arg[0])
+						.then(lambda value: (
+							Deferred.Raise(CompilerError("Too big immediate value: {}".format(value)))
+							if value > max_imm_value
+							else value
+						))
+						.then(lambda value: (
+							Deferred.Raise(CompilerError("Negative immediate value: {}".format(value)))
+							if value < 0
+							else value
+						))
+					)
+
+					self.writeWord(commands.imm_arg_commands[command][0] | value)
+				elif command in commands.two_arg_commands:
+					self.writeWord(
+						(commands.two_arg_commands[command] << 12) |
+						self.encodeArg(arg[0]) |
+						self.encodeArg(arg[1])
+					)
+				elif command in commands.reg_commands:
+					self.writeWord(
+						commands.reg_commands[command] |
+						(self.encodeRegister(arg[0]) << 6) |
+						self.encodeArg(arg[1])
+					)
+				elif command == "RTS":
+					self.writeWord(
+						0o000200 | self.encodeRegister(arg[0])
+					)
+				elif command == "SOB":
+					offset = self.PC + 2 - arg[1]
+					offset = (Deferred(offset)
+						.then(lambda offset: (
+							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(offset)))
+							if offset % 2 == 1
+							else offset
+						))
+						.then(lambda offset: (
+							Deferred.Raise(CompilerError("Too far SOB: {} words".format(offset)))
+							if offset < 0 or offset > 63
+							else offset
+						))
+					)
+
+					self.writeWord(
+						0o077000 |
+						(self.encodeRegister(arg[0]) << 6) |
+						offset
+					)
+				else:
+					raise CompilerError("Unknown command {}".format(command))
+
+				for _, additional in arg:
+					self.writeWord(additional)
 
 
 
@@ -142,3 +225,16 @@ class Compiler:
 		self.writes.append(bytes_)
 	def writeWords(self, words):
 		self.writes.append(words)
+
+
+	def encodeRegister(self, reg):
+		if reg == "SP":
+			return 6
+		elif reg == "PC":
+			return 7
+		else:
+			return ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7").index(reg)
+
+	def encodeArg(self, arg):
+		(reg, addr), _ = arg
+		return (addr << 6) | self.encodeRegister(reg)
