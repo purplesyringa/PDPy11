@@ -12,10 +12,11 @@ class InvalidError(Exception):
 	pass
 
 class Parser:
-	def __init__(self, code):
+	def __init__(self, code, syntax):
 		self.code = code
 		self.pos = 0
 		self.decimal = False
+		self.syntax = syntax
 
 	def parse(self):
 		try:
@@ -129,7 +130,7 @@ class Parser:
 
 	def handleLink(self):
 		# ORG / .LINK / .LA
-		return ".LINK", self.needInteger()
+		return ".LINK", self.needValue()
 
 	def handleInclude(self, raw):
 		# .INCLUDE / .RAW_INCLUDE
@@ -145,26 +146,28 @@ class Parser:
 		return ".I8080", None
 
 	def handleSyntax(self):
-		return ".SYNTAX", self.needLiteral().lower()
+		syntax = self.needLiteral().lower()
+		self.syntax = syntax
+		return ".SYNTAX", syntax
 
 	def handleByte(self):
 		# .DB / .BYTE / DB
-		return ".BYTE", self.needInteger()
+		return ".BYTE", self.needValue()
 
 	def handleWord(self):
 		# .DW / .WORD / DW
-		return ".WORD", self.needInteger()
+		return ".WORD", self.needValue()
 
 	def handleEnd(self):
 		return ".END", None
 
 	def handleBlkb(self):
 		# .DS / .BLKB / DS
-		return ".BLKB", self.needInteger()
+		return ".BLKB", self.needValue()
 
 	def handleBlkw(self):
 		# .BLKW
-		return ".BLKW", self.needInteger()
+		return ".BLKW", self.needValue()
 
 	def handleEven(self):
 		# .EVEN
@@ -172,7 +175,7 @@ class Parser:
 
 	def handleAlign(self):
 		# ALIGN
-		return ".ALIGN", self.needInteger()
+		return ".ALIGN", self.needValue()
 
 	def handleAscii(self, term=""):
 		# .ASCII/.ASCIZ
@@ -213,11 +216,13 @@ class Parser:
 		elif command_name in commands.two_arg_commands:
 			# Need exactly 2 arguments
 			arg1 = self.needArgument()
+			self.needPunct(",")
 			arg2 = self.needArgument()
 			return command_name, (arg1, arg2)
 		elif command_name in commands.reg_commands:
 			# Need register & argument
 			arg1 = self.needRegister()
+			self.needPunct(",")
 			arg2 = self.needArgument()
 			return command_name, (arg1, arg2)
 		elif command_name == "RTS":
@@ -227,6 +232,7 @@ class Parser:
 		elif command_name == "SOB":
 			# Need register & relative address (or label)
 			arg1 = self.needRegister()
+			self.needPunct(",")
 			arg2 = self.needExpression()
 			return command_name, (arg1, arg2)
 		else:
@@ -299,7 +305,7 @@ class Parser:
 					reg = self.needRegister()
 					self.needPunct(")")
 					return (reg, 3), None
-				elif self.needPunct("#"):
+				elif self.needPunct("#", maybe=True):
 					# #expression = (PC)+
 					expr = self.needExpression()
 					return ("PC", 2), expr
@@ -325,6 +331,69 @@ class Parser:
 				return literal
 			else:
 				raise InvalidError("Expected register, got '%s'" % literal)
+
+
+	def needExpression(self, maybe=False):
+		with Transaction(self, maybe=maybe):
+			if self.syntax == "pdp11asm":
+				value = self.needValue()
+
+				while True:
+					if self.needPunct("+", maybe=True):
+						value += self.needValue()
+					elif self.needPunct("-", maybe=True):
+						value -= self.needValue()
+					elif self.needPunct("*", maybe=True):
+						value *= self.needValue()
+					elif self.needPunct("/", maybe=True):
+						value //= self.needValue()
+					else:
+						break
+
+				return value
+			else:
+				raise NotImplementedError(
+					"PY11 expression syntax is not implemented yet"
+				)
+
+
+	def needValue(self, maybe=False):
+		with Transaction(self, maybe=maybe):
+			# Char (or two)
+			string = self.needString(maybe=True)
+			if string is not None:
+				if len(string) == 0:
+					return 0
+				elif len(string) == 1:
+					return ord(string[0])
+				elif len(string) == 2:
+					a = ord(string[0])
+					b = ord(string[1])
+					if a >= 256 or b >= 256:
+						raise InvalidError(
+							"Cannot fit two UTF characters in 1 word: " +
+							"'%s'" % string
+						)
+					return a | (b << 8)
+				else:
+					raise InvalidError(
+						"Cannot fit %s characters in 1 word: '%s'" %
+						(len(string), string)
+					)
+
+			# Integer
+			integer = self.needInteger(maybe=True)
+			if integer is not None:
+				return integer
+
+			# . (dot)
+			if self.needPunct(".", maybe=True):
+				return "."
+
+			# Label
+			label = self.needLiteral()
+			return label
+
 
 
 	def needLiteral(self, maybe=False):

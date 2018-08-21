@@ -25,7 +25,7 @@ class Compiler:
 
 
 	def compileFile(self, file, code):
-		parser = Parser(code)
+		parser = Parser(code, syntax=self.syntax)
 
 		for command in parser.parse():
 			print(command)
