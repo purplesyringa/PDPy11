@@ -25,11 +25,11 @@ class Lambda(object):
 			return call(self.l, context)
 	def __repr__(self):
 		if self.r is not None:
-			return "({!r} {} {!r})".format(self.l, self.optext, self.r)
+			return "({!r} {} {!r})".format(self.l, self.getOpText(), self.r)
 		elif self.op is not None:
-			return "({}{!r})".format(self.optext, self.l)
+			return "({}{!r})".format(self.getOpText(), self.l)
 		elif self.optext is not None:
-			return "({})".format(self.optext)
+			return "({})".format(self.getOpText())
 		elif isinstance(self.l, Lambda):
 			return repr(self.l)
 		elif hasattr(self.l, "deferredRepr"):
@@ -38,19 +38,20 @@ class Lambda(object):
 			return "{}()".format(self.l.__name__)
 		else:
 			return repr(self.l)
+	def getOpText(self):
+		if callable(self.optext):
+			return self.optext()
+		else:
+			return self.optext
 
 def infix(text, op):
 	def infix(self, other):
 		other = Deferred(other)
-		if self.isReady() and other.isReady():
-			return Deferred(op(self(), other()))
 		return Deferred(Lambda(self, text, op, other))
 	return infix
 
 def prefix(text, op):
 	def prefix(self):
-		if self.isReady():
-			return Deferred(op(self()))
 		return Deferred(Lambda(self, text, op))
 	return prefix
 
@@ -88,21 +89,23 @@ class Deferred(object):
 	def __init__(self, f):
 		if isinstance(f, Deferred):
 			self.f = f.f
-			self.isReady = f.isReady
 		else:
 			self.f = Lambda(f)
 
-			if hasattr(f, "is_ready"):
-				self.isReady = lambda: f.is_ready
-			elif hasattr(f, "isReady"):
-				self.isReady = f.isReady
-			else:
-				self.isReady = lambda: not callable(f)
+		self.cached = False
+		self.cache = None
+
 
 	def __call__(self, context=None):
+		if self.cached:
+			return self.cache
+
 		result = self.f(context)
 		while isinstance(result, Deferred):
 			result = result(context);
+
+		self.cached = True
+		self.cache = result
 		return result
 
 	__add__ = infix("+", operator.add)
@@ -169,7 +172,7 @@ class Deferred(object):
 
 		return cls(Lambda(
 			lambda context: true(context) if cond(context) else false(context),
-			"{!r} if {!r} else {!r}".format(true, cond, false)
+			lambda: "{!r} if {!r} else {!r}".format(true, cond, false)
 		))
 
 	@classmethod
@@ -190,7 +193,7 @@ class Deferred(object):
 		err = cls(err)
 		def cb():
 			raise err()
-		return cls(Lambda(cb, "raise {!r}".format(err)))
+		return cls(Lambda(cb, lambda: "raise {!r}".format(err)))
 
 
 	@classmethod

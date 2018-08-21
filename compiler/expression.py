@@ -1,6 +1,9 @@
 from .deferred import Deferred
 
 
+class ExpressionEvaluateError(Exception):
+	pass
+
 class Expression:
 	def __new__(cls, s):
 		return Deferred(cls.Get(s))
@@ -18,12 +21,16 @@ class Expression:
 				return compiler.PC
 			else:
 				# Label
-				return Deferred(lambda: compiler.labels[self.s])
+				def label():
+					try:
+						return compiler.labels[self.s]
+					except KeyError:
+						raise ExpressionEvaluateError("Label '{}' not found".format(self.s))
+
+				return Deferred(label)
 
 		def deferredRepr(self):
 			return "Expression({!r})".format(self.s)
-		def isReady(self):
-			return isinstance(self.s, int)
 
 	@staticmethod
 	def asOffset(expr):
