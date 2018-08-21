@@ -1,5 +1,6 @@
 import operator
 import inspect
+import types
 
 class Lambda(object):
 	def __init__(self, l, optext=None, op=None, r=None):
@@ -59,10 +60,20 @@ def convert(tp):
 
 def call(f, context):
 	spec = inspect.getargspec(f)
+	args = len(spec.args)
 	varargs = spec.varargs is not None
 	kwargs = spec.keywords is not None
 
-	if len(spec.args) or varargs or kwargs:
+	# Method
+	if isinstance(f, types.MethodType):
+		args -= 1 # self
+	elif isinstance(f, types.FunctionType):
+		pass
+	elif hasattr(f, "__call__"):
+		# Callable object
+		return call(f.__call__, context)
+
+	if args >= 1 or varargs or kwargs:
 		return f(context)
 	else:
 		return f()
