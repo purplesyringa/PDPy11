@@ -130,13 +130,26 @@ class Parser:
 			return
 
 
-		# It is either a command or a label
+		# It is either a command or a label, or EQU
 		if self.needPunct(":", maybe=True):
 			# It's a label
 			self.last_label = literal
 			for cmd in self.parseCommand(labels=labels + [literal]):
 				yield cmd
 			return
+		elif self.needPunct("=", maybe=True):
+			# EQU
+			expr = self.needExpression()
+			yield (".EQU", (literal, expr)), labels
+			return
+
+		with Transaction(self, maybe=True):
+			if self.needLiteral() == "EQU":
+				expr = self.needExpression()
+				yield (".EQU", (literal, expr)), labels
+				return
+			else:
+				raise InvalidError("Rollback")
 
 		# It's a command
 		yield self.handleCommand(literal), labels
