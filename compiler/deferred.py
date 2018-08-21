@@ -100,7 +100,6 @@ class Deferred(object):
 				self.isReady = lambda: not callable(f)
 
 	def __call__(self, context=None):
-		print("Call", repr(self))
 		result = self.f(context)
 		while isinstance(result, Deferred):
 			result = result(context);
