@@ -8,21 +8,15 @@ class Lambda(object):
 		self.optext = optext
 		self.op = op
 		self.r = r
+
 	def __call__(self, context):
 		if self.r is not None:
-			# Optimize A - A
-			if (
-				self.l is self.r and
-				self.op is operator.sub and
-				isinstance(self.l, int)
-			):
-				return 0
-
 			return self.op(call(self.l, context), call(self.r, context))
 		elif self.op is not None:
 			return self.op(call(self.l, context))
 		else:
 			return call(self.l, context)
+
 	def __repr__(self):
 		if self.r is not None:
 			return "({!r} {} {!r})".format(self.l, self.getOpText(), self.r)
@@ -38,16 +32,22 @@ class Lambda(object):
 			return "{}()".format(self.l.__name__)
 		else:
 			return repr(self.l)
+
 	def getOpText(self):
 		if callable(self.optext):
 			return self.optext()
 		else:
 			return self.optext
 
+
 def infix(text, op):
 	def infix(self, other):
-		other = Deferred(other)
-		return Deferred(Lambda(self, text, op, other))
+		if isinstance(other, Deferred):
+			return Deferred(Lambda(self, text, op, other))
+		else:
+			defer = Deferred(self)
+			defer.pending_math.append((text, op, other))
+			return defer
 	return infix
 
 def prefix(text, op):
@@ -64,10 +64,15 @@ def call(f, context):
 	if not callable(f):
 		return f
 
+	if isinstance(f, Deferred):
+		f.repr_disabled = True
 	try:
 		spec = inspect.getargspec(f)
 	except TypeError:
 		spec = inspect.getargspec(f.__call__)
+	finally:
+		if isinstance(f, Deferred):
+			f.repr_disabled = False
 
 	args = len(spec.args)
 	varargs = spec.varargs is not None
@@ -89,20 +94,35 @@ class Deferred(object):
 	def __init__(self, f):
 		if isinstance(f, Deferred):
 			self.f = f.f
+			self.pending_math = f.pending_math[:]
 		else:
 			self.f = Lambda(f)
+			self.pending_math = []
 
 		self.cached = False
 		self.cache = None
+		self.is_evaluating = False
+		self.repr_disabled = False
 
 
 	def __call__(self, context=None):
 		if self.cached:
 			return self.cache
+		elif self.is_evaluating:
+			raise OverflowError("Deferred value is recursively defined")
 
-		result = self.f(context)
-		while isinstance(result, Deferred):
-			result = result(context);
+		self.is_evaluating = True
+
+		try:
+			result = self.f(context)
+			# Handle padding math
+			for optext, op, other in self.pending_math:
+				result = op(result, other)
+
+			while isinstance(result, Deferred):
+				result = result(context)
+		finally:
+			self.is_evaluating = False
 
 		self.cached = True
 		self.cache = result
@@ -143,7 +163,13 @@ class Deferred(object):
 	__invert__ = prefix("~", operator.invert)
 
 	def __repr__(self):
-		return repr(self.f)
+		if self.repr_disabled:
+			return "<Deferred>"
+
+		rpr = repr(self.f)
+		for optext, _, other in self.pending_math:
+			rpr = "({} {} {!r})".format(rpr, optext, other)
+		return rpr
 
 	__int__ = convert(int)
 	__str__ = convert(str)
