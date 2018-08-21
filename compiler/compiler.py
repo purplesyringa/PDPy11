@@ -84,7 +84,6 @@ class Compiler:
 					self.link_address = arg
 			elif command == ".INCLUDE":
 				self.include(arg, file)
-				raise NotImplementedError(".INCLUDE and .RAW_INCLUDE are not implemented yet")
 			elif command == ".PDP11":
 				pass
 			elif command == ".I8080":
