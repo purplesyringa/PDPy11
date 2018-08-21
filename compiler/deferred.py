@@ -19,37 +19,35 @@ class Lambda(object):
 			return self.l
 	def __repr__(self):
 		if self.r is not None:
-			return "(%r %s %r)" % (self.l, self.optext, self.r)
+			return "({!r} {} {!r})".format(self.l, self.optext, self.r)
 		elif self.op is not None:
-			return "(%s%r)" % (self.optext, self.l)
+			return "({}{!r})".format(self.optext, self.l)
+		elif self.optext is not None:
+			return "({})".format(self.optext)
 		elif isinstance(self.l, Lambda):
 			return repr(self.l)
 		elif hasattr(self.l, "deferredRepr"):
 			return self.l.deferredRepr()
 		elif callable(self.l):
-			return "%s()" % self.l.__name__
+			return "{}()".format(self.l.__name__)
 		else:
 			return repr(self.l)
 
 def infix(text, op):
 	def infix(self, other):
-		self = Deferred(self)
 		other = Deferred(other)
 		return Deferred(Lambda(self, text, op, other))
 	return infix
 
 def infixi(text, op):
 	def infixi(self, other):
-		self = Deferred(self)
 		other = Deferred(other)
-		oldf = self.f
-		self.f = Lambda(Deferred(oldf), text, op, other)
+		self.f = Lambda(Deferred(self.f), text, op, other)
 		return self
 	return infixi
 
 def prefix(text, op):
 	def prefix(self):
-		self = Deferred(self)
 		return Deferred(Lambda(self, text, op))
 	return prefix
 
@@ -59,6 +57,7 @@ def convert(tp):
 	return convert
 
 def call(f, context):
+	print("call", repr(f))
 	spec = inspect.getargspec(f)
 	args = len(spec.args)
 	varargs = spec.varargs is not None
@@ -100,6 +99,12 @@ class Deferred(object):
 	__and__ = infix("&", operator.and_)
 	__or__ = infix("|", operator.or_)
 	__xor__ = infix("^", operator.xor)
+	__eq__ = infix("==", operator.eq)
+	__ne__ = infix("!=", operator.ne)
+	__lt__ = infix("<", operator.lt)
+	__gt__ = infix(">", operator.gt)
+	__le__ = infix("<=", operator.le)
+	__ge__ = infix(">=", operator.ge)
 
 	__radd__ = infix("+", operator.add)
 	__rsub__ = infix("-", operator.sub)
@@ -143,12 +148,12 @@ class Deferred(object):
 		self()[name] = value
 
 
-	def to(self, type):
-		self = Deferred(self)
-		return Deferred(lambda context: type(self(context)))
+	def to(self, tp):
+		assert isinstance(tp, type)
+		return self.then(tp)
 
 	def then(self, f):
-		return Deferred(lambda context: f(self(context)))
+		return Deferred(Lambda(self, "({})".format(f.__name__), lambda value: f(value)))
 
 
 	@classmethod
@@ -157,7 +162,10 @@ class Deferred(object):
 		true = cls(true)
 		false = cls(false)
 
-		return cls(lambda context: true(context) if cond(context) else false(context))
+		return cls(Lambda(
+			lambda context: true(context) if cond(context) else false(context),
+			"{!r} if {!r} else {!r}".format(true, cond, false)
+		))
 
 	@classmethod
 	def Repeat(cls, count, what):
@@ -177,17 +185,17 @@ class Deferred(object):
 		err = cls(err)
 		def cb():
 			raise err()
-		return cls(cb)
+		return cls(Lambda(cb, "raise {!r}".format(err)))
 
 
 	@classmethod
 	def And(cls, a, b):
 		a = cls(a)
 		b = cls(b)
-		return cls(lambda: a(context) and b(context))
+		return cls(Lambda(a, "and", lambda a, b: a and b, b))
 
 	@classmethod
 	def Or(cls, a, b):
 		a = cls(a)
 		b = cls(b)
-		return cls(lambda: a(context) or b(context))
+		return cls(Lambda(a, "or", lambda a, b: a or b, b))
