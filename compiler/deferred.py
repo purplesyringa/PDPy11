@@ -22,6 +22,8 @@ class Lambda(object):
 			return "(%s%r)" % (self.optext, self.l)
 		elif isinstance(self.l, Lambda):
 			return repr(self.l)
+		elif hasattr(self.l, "deferredRepr"):
+			return self.l.deferredRepr()
 		elif callable(self.l):
 			return "%s()" % self.l.__name__
 		else:
@@ -67,8 +69,8 @@ class Deferred(object):
 	__add__ = infix("+", operator.add)
 	__sub__ = infix("-", operator.sub)
 	__mul__ = infix("*", operator.mul)
-	__div__ = infix("//", operator.div)
-	__truediv__ = infix("/", operator.truediv)
+	__div__ = infix("//", operator.truediv)
+	__floordiv__ = infix("/", operator.floordiv)
 	__mod__ = infix("%", operator.mod)
 	__lshift__ = infix("<<", operator.lshift)
 	__rshift__ = infix(">>", operator.rshift)
@@ -79,8 +81,8 @@ class Deferred(object):
 	__radd__ = infix("+", operator.add)
 	__rsub__ = infix("-", operator.sub)
 	__rmul__ = infix("*", operator.mul)
-	__rdiv__ = infix("//",operator.div)
-	__rtruediv__ = infix("/", operator.truediv)
+	__rdiv__ = infix("//", operator.truediv)
+	__rfloordiv__ = infix("/", operator.floordiv)
 	__rmod__ = infix("%", operator.mod)
 	__rlshift__ = infix("<<",operator.lshift)
 	__rrshift__ = infix(">>",operator.rshift)
@@ -91,8 +93,8 @@ class Deferred(object):
 	__iadd__ = infixi("+", operator.add)
 	__isub__ = infixi("-", operator.sub)
 	__imul__ = infixi("*", operator.mul)
-	__idiv__ = infixi("/=/",operator.div)
-	__itruediv__ = infixi("/", operator.truediv)
+	__idiv__ = infixi("/=/",operator.truediv)
+	__ifloordiv__ = infixi("/", operator.floordiv)
 	__imod__ = infixi("%", operator.mod)
 	__ilshift__ = infixi("<<",operator.lshift)
 	__irshift__ = infixi(">>",operator.rshift)
