@@ -27,6 +27,9 @@ class Parser:
 			pass
 
 	def parseCommand(self, labels=[]):
+		if self.isEOF():
+			raise EndOfParsingError()
+
 		literal = self.needLiteral(maybe=True)
 
 		# First, handle metacommands (directives)
@@ -650,6 +653,19 @@ class Parser:
 					raise InvalidError("Expected boolean, got '{}'".format(self.code[self.pos]))
 				except IndexError:
 					raise InvalidError("Expected boolean, got EOF")
+
+	def isEOF(self):
+		pos = self.pos
+
+		# Skip whitespace
+		try:
+			while self.code[self.pos] in whitespace:
+				self.pos += 1
+		except IndexError:
+			return True
+
+		self.pos = pos
+		return False
 
 
 class Transaction:
