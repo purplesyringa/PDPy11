@@ -1,6 +1,7 @@
 import os
 import sys
 from .compiler import Compiler
+from .compiler.util import encodeBinRaw
 
 if len(sys.argv) < 2:
 	print("PY11 Compiler")
@@ -129,9 +130,11 @@ if project is not None:
 	if isBin is None:
 		isBin = True
 
+output_noext = output
 if output is None:
 	if project is not None:
 		output = project
+		output_noext = output
 
 		# Add extension
 		if isBin:
@@ -142,6 +145,7 @@ if output is None:
 		output = files[0][0]
 		if output.endswith(".mac"):
 			output = output[:-4]
+		output_noext = output
 
 file_list = []
 
@@ -201,9 +205,18 @@ if project is not None:
 					file_list.append(file)
 
 
-output_stream = open(output, "w")
-
 compiler = Compiler(syntax=syntax, link=link, file_list=file_list, project=project)
 for file in files:
 	compiler.addFile(file)
-output_stream.write(compiler.link())
+
+out_files = compiler.link()
+
+for ext, file in out_files:
+	if file is None:
+		file = output_noext + "." + ext
+
+	with open(file, "wb") as f:
+		f.write(encodeBinRaw(ext == "bin", compiler))
+
+output_stream = open(output, "wb")
+output_stream.write(encodeBinRaw(isBin, compiler))
