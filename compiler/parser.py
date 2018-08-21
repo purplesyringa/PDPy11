@@ -81,7 +81,7 @@ class Parser:
 				return
 			elif literal == "RAW_INCLUDE":
 				yield self.handleInclude(raw=True), labels
-				return
+				raise EndOfParsingError()
 			elif literal == "PDP11":
 				yield self.handlePdp11(), labels
 				return
@@ -162,7 +162,7 @@ class Parser:
 		# ORG / .LINK / .LA
 		return ".LINK", self.needValue()
 
-	def handleInclude(self, raw):
+	def handleInclude(self, raw=False):
 		# .INCLUDE / .RAW_INCLUDE
 		if raw:
 			return ".INCLUDE", self.needRaw()
@@ -452,8 +452,11 @@ class Parser:
 				return Expression(".")
 
 			# Label
-			label = self.needLiteral()
-			return Expression(label)
+			label = self.needLiteral(maybe=True)
+			if label is not None:
+				return Expression(label)
+
+			raise InvalidError("Expected integer, string, . (dot) or label")
 
 
 
@@ -616,9 +619,6 @@ class Parser:
 			if radix is None:
 				radix = 10 if self.decimal else 8
 
-			if integer != "":
-				t.noRollback()
-
 			try:
 				return int(integer, radix)
 			except ValueError:
@@ -647,7 +647,7 @@ class Parser:
 	def needString(self, maybe=False):
 		# Return string between " and ", or / and /
 
-		with Transaction(self, maybe=maybe, stage="string"):
+		with Transaction(self, maybe=maybe, stage="string") as t:
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -655,6 +655,7 @@ class Parser:
 			if self.code[self.pos] in "\"/":
 				punct = self.code[self.pos]
 				self.pos += 1
+				t.noRollback()
 			else:
 				raise InvalidError("Expected string, got '{}'".format(self.code[self.pos]))
 

@@ -22,14 +22,19 @@ class Compiler:
 		self.build = []
 		self.writes = []
 
-	def addFile(self, file):
+	def addFile(self, file, relative_to=None):
+		if relative_to is None:
+			relative_to = os.getcwd()
+		else:
+			relative_to = os.path.dirname(relative_to)
+
 		# Resolve file path
 		if file.startswith("/") or file[1:3] == ":\\":
 			# Absolute
 			pass
 		else:
 			# Relative
-			file = os.path.join(os.getcwd(), file)
+			file = os.path.join(relative_to, file)
 
 		with open(file) as f:
 			code = f.read()
@@ -78,6 +83,7 @@ class Compiler:
 				if self.project is not None:
 					self.link_address = arg
 			elif command == ".INCLUDE":
+				self.include(arg, file)
 				raise NotImplementedError(".INCLUDE and .RAW_INCLUDE are not implemented yet")
 			elif command == ".PDP11":
 				pass
@@ -235,6 +241,10 @@ class Compiler:
 							additional = additional - self.PC - 2
 
 						self.writeWord(additional)
+
+
+	def include(self, path, file):
+		self.addFile(path, relative_to=file)
 
 
 
