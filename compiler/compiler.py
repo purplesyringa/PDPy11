@@ -216,6 +216,9 @@ class Compiler:
 						additional = None
 
 					if additional is not None:
+						if getattr(additional, "isOffset", False):
+							additional = additional - self.PC - 2
+
 						self.writeWord(additional)
 
 
