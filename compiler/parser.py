@@ -143,8 +143,10 @@ class Parser:
 			yield (".EQU", (literal, expr)), labels
 			return
 
-		with Transaction(self, maybe=True):
+		with Transaction(self, maybe=True) as t:
 			if self.needLiteral() == "EQU":
+				t.noRollback("EQU")
+
 				expr = self.needExpression()
 				yield (".EQU", (literal, expr)), labels
 				return
@@ -274,9 +276,10 @@ class Parser:
 		# expression(Rn), @expression(Rn), and PC shortcuts: #expression,
 		# @#expression, @expression and expression.
 
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="argument") as t:
 			if self.needPunct("(", maybe=True):
 				# (Rn) or (Rn)+
+				t.noRollback()
 				reg = self.needRegister()
 				self.needPunct(")")
 
@@ -292,10 +295,12 @@ class Parser:
 
 				if self.needPunct("#", maybe=True):
 					# @#expression = @(PC)+
+					t.noRollback()
 					expr = self.needExpression()
 					return ("PC", "@(Rn)+"), expr
 				elif self.needPunct("(", maybe=True):
 					# @(Rn)+ or @(Rn)
+					t.noRollback()
 					reg = self.needRegister()
 					self.needPunct(")")
 					if self.needPunct("+", maybe=True):
@@ -306,6 +311,7 @@ class Parser:
 						return (reg, "@N(Rn)"), Expression(0)
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
+					t.noRollback()
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
@@ -317,10 +323,12 @@ class Parser:
 					return (reg, "(Rn)"), None
 				else:
 					# @expression(Rn) or @expression
+					t.noRollback()
 					expr = self.needExpression()
 
 					if self.needPunct("(", maybe=True):
 						# @expression(Rn)
+						t.noRollback()
 						reg = self.needRegister()
 						self.needPunct(")")
 						return (reg, "@N(Rn)"), expr
@@ -331,12 +339,14 @@ class Parser:
 				# Rn, -(Rn), expression(Rn), expression or #expression
 				if self.needPunct("-", maybe=True):
 					# -(Rn)
+					t.noRollback()
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
 					return (reg, "-(Rn)"), None
 				elif self.needPunct("#", maybe=True):
 					# #expression = (PC)+
+					t.noRollback()
 					expr = self.needExpression()
 					return ("PC", "(Rn)+"), expr
 				else:
@@ -347,9 +357,11 @@ class Parser:
 						return (reg, "Rn"), None
 					else:
 						# expression(Rn) or expression
+						t.noRollback()
 						expr = self.needExpression()
 						if self.needPunct("(", maybe=True):
 							# expression(Rn)
+							t.noRollback()
 							reg = self.needRegister()
 							self.needPunct(")")
 							return (reg, "N(Rn)"), expr
@@ -359,7 +371,7 @@ class Parser:
 
 
 	def needRegister(self, maybe=False):
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="register"):
 			literal = self.needLiteral()
 			if literal in registers:
 				return literal
@@ -370,18 +382,24 @@ class Parser:
 
 
 	def needExpression(self, isLabel=False, maybe=False):
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="expression") as t:
 			if self.syntax == "pdp11asm":
 				value = self.needValue(isLabel=isLabel)
 
+				t.noRollback()
+
 				while True:
 					if self.needPunct("+", maybe=True):
+						t.noRollback()
 						value += self.needValue(isLabel=isLabel)
 					elif self.needPunct("-", maybe=True):
+						t.noRollback()
 						value -= self.needValue(isLabel=isLabel)
 					elif self.needPunct("*", maybe=True):
+						t.noRollback()
 						value *= self.needValue(isLabel=isLabel)
 					elif self.needPunct("/", maybe=True):
+						t.noRollback()
 						value //= self.needValue(isLabel=isLabel)
 					else:
 						break
@@ -395,10 +413,11 @@ class Parser:
 
 
 	def needValue(self, isLabel=False, maybe=False):
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="value") as t:
 			# Char (or two)
 			string = self.needString(maybe=True)
 			if string is not None:
+				t.noRollback()
 				if len(string) == 0:
 					return Expression(0)
 				elif len(string) == 1:
@@ -442,7 +461,7 @@ class Parser:
 		# Parse literal, starting with self.pos, and seek to
 		# its end. Return the literal in upper case.
 
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="literal"):
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -472,11 +491,19 @@ class Parser:
 
 
 	def needPunct(self, char, maybe=False):
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="'{}'".format(char)):
 			# Skip whitespace
 			self.skipWhitespace()
 
 			if self.code[self.pos] == char:
+				self.pos += 1
+				return char
+			else:
+				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+
+	def needChar(self, char, maybe=False):
+		with Transaction(self, maybe=maybe, stage="'{}'".format(char)):
+			if self.code[self.pos].upper() == char:
 				self.pos += 1
 				return char
 			else:
@@ -487,7 +514,7 @@ class Parser:
 		# Parse integer, starting with self.pos, and seek to
 		# its end. Return the integer in 'int' type.
 
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="integer") as t:
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -495,99 +522,113 @@ class Parser:
 			radix = None
 
 			while True:
-				if self.code[self.pos] == ".":
+				if self.needChar(".", maybe=True):
 					# Decimal
 					if integer == "":
 						raise InvalidError("Expected integer, got '.'")
-					else:
-						if radix is None:
-							self.pos += 1
-							radix = 10
-							break
-						else:
-							raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "hH":
-					# Hexadimical
-					if radix is None:
-						self.pos += 1
-						radix = 16
-						break
-					else:
-						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "dD":
-					# Decimal
-					if radix is None:
-						self.pos += 1
+					elif radix is None:
 						radix = 10
 						break
 					else:
+						t.noRollback()
 						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "bB":
-					# Binary
-					if radix is None:
-						self.pos += 1
-						radix = 2
-						break
-					else:
-						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "oO":
-					# Octal
-					if radix is None:
-						self.pos += 1
-						radix = 8
-						break
-					else:
-						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "xX" and integer == "0":
+				elif self.needChar("H", maybe=True):
 					# Hexadimical
-					if radix is None:
-						self.pos += 1
+					if integer == "":
+						raise InvalidError("Expected integer, got 'H'")
+					elif radix is None:
 						radix = 16
 						break
 					else:
+						t.noRollback()
 						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "bB" and integer == "0":
+				elif self.needChar("D", maybe=True):
+					# Decimal
+					if integer == "":
+						raise InvalidError("Expected integer, got 'D'")
+					elif radix is None:
+						radix = 10
+						break
+					else:
+						t.noRollback()
+						raise InvalidError("Two (or more) radix specifiers")
+				elif self.needChar("B", maybe=True):
 					# Binary
-					if radix is None:
-						self.pos += 1
-						radix = 2
-						break
+					if integer == "":
+						raise InvalidError("Expected integer, got 'B'")
+					elif integer == "0":
+						if radix is None:
+							radix = 2
+							t.noRollback()
+						else:
+							t.noRollback()
+							raise InvalidError("Two (or more) radix specifiers")
 					else:
-						raise InvalidError("Two (or more) radix specifiers")
-				elif self.code[self.pos] in "oO" and integer == "0":
+						if radix is None:
+							radix = 2
+							break
+						else:
+							t.noRollback()
+							raise InvalidError("Two (or more) radix specifiers")
+				elif self.needChar("O", maybe=True):
 					# Octal
-					if radix is None:
-						self.pos += 1
-						radix = 8
-						break
+					if integer == "":
+						raise InvalidError("Expected integer, got 'O'")
+					elif integer == "0":
+						if radix is None:
+							radix = 8
+							t.noRollback()
+						else:
+							t.noRollback()
+							raise InvalidError("Two (or more) radix specifiers")
 					else:
+						if radix is None:
+							radix = 8
+							break
+						else:
+							t.noRollback()
+							raise InvalidError("Two (or more) radix specifiers")
+				elif self.needChar("X", maybe=True):
+					# Hexadimical
+					if integer != "0":
+						raise InvalidError("Expected integer, got '{}x'".format(integer))
+					elif radix is None:
+						radix = 16
+						t.noRollback()
+					else:
+						t.noRollback()
 						raise InvalidError("Two (or more) radix specifiers")
-
-
-				try:
-					if self.code[self.pos] in whitespace + punctuation:
-						# Punctuation or whitespace
-						break
-				except IndexError:
-					# End
-					break
-
-				if self.code[self.pos].upper() in "0123456789ABCDEF":
-					integer += self.code[self.pos].upper()
-					self.pos += 1
 				else:
-					raise InvalidError("Expected integer, got '{}'".format(self.code[self.pos]))
+					try:
+						if self.code[self.pos] in whitespace + punctuation:
+							# Punctuation or whitespace
+							break
+					except IndexError:
+						# End
+						break
+
+					if self.code[self.pos].upper() in "0123456789ABCDEF":
+						integer += self.code[self.pos].upper()
+						self.pos += 1
+					else:
+						raise InvalidError("Expected integer, got '{}'".format(self.code[self.pos]))
 
 			if radix is None:
 				radix = 10 if self.decimal else 8
 
-			return int(integer, radix)
+			if integer != "":
+				t.noRollback()
+
+			try:
+				return int(integer, radix)
+			except ValueError:
+				raise InvalidError("Expected integer, got '{}' (radix {})".format(integer, radix))
 
 
 	def needRaw(self):
 		# Return string till the end of the string (trimmed)
 
-		with Transaction(self, maybe=False):
+		with Transaction(self, maybe=False, stage="raw string (terminated by EOL)"):
 			string = ""
 
 			while True:
@@ -606,7 +647,7 @@ class Parser:
 	def needString(self, maybe=False):
 		# Return string between " and ", or / and /
 
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="string"):
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -664,7 +705,7 @@ class Parser:
 	def needBool(self, maybe=False):
 		# Handle ON, OFF, TRUE, FALSE, YES, NO
 
-		with Transaction(self, maybe=maybe):
+		with Transaction(self, maybe=maybe, stage="boolean"):
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -722,12 +763,15 @@ class Parser:
 
 
 class Transaction:
-	def __init__(self, parser, maybe=False):
+	def __init__(self, parser, maybe=False, stage=None):
 		self.parser = parser
 		self.maybe = maybe
+		self.stage = stage
 
 	def __enter__(self):
 		self.pos = self.parser.pos
+		self.allow_rollback = True
+		return self
 	def __exit__(self, err_cls, err, traceback):
 		if err_cls is None:
 			# Success
@@ -737,7 +781,7 @@ class Transaction:
 			raise err
 		elif isinstance(err, InvalidError):
 			# Could not parse token as ...
-			if self.maybe:
+			if self.maybe and self.allow_rollback:
 				self.parser.pos = self.pos
 				return True
 			else:
@@ -745,3 +789,7 @@ class Transaction:
 		else:
 			# Some weird bug
 			raise err
+
+	def noRollback(self):
+		# If encounter InvalidError, always reraise it
+		self.allow_rollback = False
