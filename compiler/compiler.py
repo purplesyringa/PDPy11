@@ -129,7 +129,7 @@ class Compiler:
 					self.writeWord(commands.zero_arg_commands[command])
 				elif command in commands.one_arg_commands:
 					self.writeWord(
-						(commands.one_arg_commands[command] << 6) |
+						commands.one_arg_commands[command] |
 						self.encodeArg(arg[0])
 					)
 				elif command in commands.jmp_commands:
@@ -138,7 +138,7 @@ class Compiler:
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(octal(offset))))
 							if offset % 2 == 1
-							else offset
+							else offset // 2
 						))
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Too far branch: {} words".format(octal(offset))))
@@ -148,7 +148,7 @@ class Compiler:
 					)
 
 					self.writeWord(
-						(commands.jmp_commands[command] << 6) |
+						commands.jmp_commands[command] |
 						util.int8ToUint8(offset)
 					)
 				elif command in commands.imm_arg_commands:
