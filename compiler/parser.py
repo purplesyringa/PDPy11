@@ -1,5 +1,6 @@
 import os
 from . import commands
+from .expression import Expression
 
 
 whitespace = "\n\r\t "
@@ -366,9 +367,9 @@ class Parser:
 			string = self.needString(maybe=True)
 			if string is not None:
 				if len(string) == 0:
-					return 0
+					return Expression(0)
 				elif len(string) == 1:
-					return ord(string[0])
+					return Expression(ord(string[0]))
 				elif len(string) == 2:
 					a = ord(string[0])
 					b = ord(string[1])
@@ -377,7 +378,7 @@ class Parser:
 							"Cannot fit two UTF characters in 1 word: " +
 							"'%s'" % string
 						)
-					return a | (b << 8)
+					return Expression(a | (b << 8))
 				else:
 					raise InvalidError(
 						"Cannot fit %s characters in 1 word: '%s'" %
@@ -387,15 +388,15 @@ class Parser:
 			# Integer
 			integer = self.needInteger(maybe=True)
 			if integer is not None:
-				return integer
+				return Expression(integer)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
-				return "."
+				return Expression(".")
 
 			# Label
 			label = self.needLiteral()
-			return label
+			return Expression(label)
 
 
 
