@@ -593,6 +593,11 @@ class Parser(object):
 			integer = ""
 			radix = None
 
+			if self.needChar("+", maybe=True):
+				integer = "+"
+			elif self.needChar("-", maybe=True):
+				integer = "-"
+
 			while True:
 				if self.needChar(".", maybe=True):
 					# Decimal
