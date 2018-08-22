@@ -609,59 +609,25 @@ class Parser(object):
 					else:
 						t.noRollback()
 						raise InvalidError("Two (or more) radix specifiers")
-				elif self.needChar("H", maybe=True):
-					# Hexadimical
-					if integer == "":
-						raise InvalidError("Expected integer, got 'H'")
-					elif radix is None:
-						radix = 16
-						break
-					else:
-						t.noRollback()
-						raise InvalidError("Two (or more) radix specifiers")
-				elif self.needChar("D", maybe=True):
-					# Decimal
-					if integer == "":
-						raise InvalidError("Expected integer, got 'D'")
-					elif radix is None:
-						radix = 10
-						break
-					else:
-						t.noRollback()
-						raise InvalidError("Two (or more) radix specifiers")
 				elif self.needChar("B", maybe=True):
 					# Binary
-					if integer == "":
-						raise InvalidError("Expected integer, got 'B'")
-					elif integer == "0":
-						if radix is None:
-							radix = 2
-							t.noRollback()
-						else:
-							t.noRollback()
-							raise InvalidError("Two (or more) radix specifiers")
+					if integer != "0":
+						raise InvalidError("Expected integer, got '{}b'".format(integer))
 					else:
 						if radix is None:
 							radix = 2
-							break
+							t.noRollback()
 						else:
 							t.noRollback()
 							raise InvalidError("Two (or more) radix specifiers")
 				elif self.needChar("O", maybe=True):
 					# Octal
-					if integer == "":
-						raise InvalidError("Expected integer, got 'O'")
-					elif integer == "0":
-						if radix is None:
-							radix = 8
-							t.noRollback()
-						else:
-							t.noRollback()
-							raise InvalidError("Two (or more) radix specifiers")
+					if integer != "0":
+						raise InvalidError("Expected integer, got '{}o'".format(integer))
 					else:
 						if radix is None:
 							radix = 8
-							break
+							t.noRollback()
 						else:
 							t.noRollback()
 							raise InvalidError("Two (or more) radix specifiers")
