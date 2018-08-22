@@ -93,7 +93,7 @@ class Compiler(object):
 				continue
 			elif command == ".LINK":
 				self.PC = arg
-				if self.project is not None:
+				if self.project is None:
 					self.link_address = arg
 			elif command == ".INCLUDE":
 				self.include(arg, file)

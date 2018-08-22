@@ -76,7 +76,7 @@ if len(sys.argv) < 2:
 
 
 # Parse CLI arguments
-isBin = None
+isBin = True
 files = []
 output = None
 syntax = "pdp11asm"
@@ -127,10 +127,6 @@ elif link[-1] in ("d", "D", "."):
 else:
 	link = int(link, 8)
 
-if project is not None:
-	if isBin is None:
-		isBin = True
-
 output_noext = output
 if output is None:
 	if project is not None:
@@ -143,10 +139,14 @@ if output is None:
 		else:
 			output += ".raw"
 	else:
-		output = files[0][0]
+		output = files[0]
 		if output.endswith(".mac"):
 			output = output[:-4]
 		output_noext = output
+
+		# Add extension
+		if isBin:
+			output += ".bin"
 
 file_list = []
 
@@ -216,7 +216,10 @@ if project is None:
 	# Single file mode
 	for ext, file in out_files:
 		if file is None:
-			file = output_noext + "." + ext
+			if ext != "raw":
+				file = output_noext + "." + ext
+			else:
+				file = output_noext
 
 		with open(file, "wb") as f:
 			f.write(encodeBinRaw(ext == "bin", compiler))
