@@ -17,9 +17,6 @@ class Expression:
 			if isinstance(self.s, int):
 				# Integer
 				return self.s
-			elif isinstance(self.s, str) and self.s == ".":
-				# . (dot)
-				return compiler.PC
 			else:
 				# Label
 				def label():

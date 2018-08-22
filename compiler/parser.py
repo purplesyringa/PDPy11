@@ -19,6 +19,7 @@ class Parser:
 		self.decimal = False
 		self.syntax = syntax
 		self.last_label = ""
+		self.last_mark = 0
 
 	def parse(self):
 		try:
@@ -28,9 +29,14 @@ class Parser:
 		except EndOfParsingError:
 			pass
 
-	def parseCommand(self, labels=[]):
+	def parseCommand(self, labels=None):
 		if self.isEOF():
 			raise EndOfParsingError()
+
+		if labels is None:
+			labels = []
+
+		self.current_labels = labels
 
 		literal = self.needLiteral(maybe=True)
 
@@ -155,6 +161,12 @@ class Parser:
 
 		# It's a command
 		yield self.handleCommand(literal), labels
+
+	def mark(self):
+		label = ".{}".format(self.last_mark)
+		self.current_labels.append(label)
+		self.last_mark += 1
+		return Expression(label)
 
 
 
@@ -449,7 +461,7 @@ class Parser:
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
-				return Expression(".")
+				return self.mark()
 
 			# Label
 			label = self.needLiteral(maybe=True)
