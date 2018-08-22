@@ -50,11 +50,12 @@ class Parser(object):
 			raise SystemExit(1)
 
 	def parseCommand(self, labels=None):
-		if self.isEOF():
-			raise EndOfParsingError()
-
 		if labels is None:
 			labels = []
+
+		if self.isEOF():
+			yield (None, None), labels
+			raise EndOfParsingError()
 
 		self.current_labels = labels
 
@@ -73,7 +74,7 @@ class Parser(object):
 				yield self.handleWord(), labels
 				return
 			elif literal == "END":
-				yield None, labels
+				yield (None, None), labels
 				raise EndOfParsingError()
 			elif literal == "DS":
 				yield self.handleBlkb(), labels
@@ -128,7 +129,7 @@ class Parser(object):
 						yield self.handleWord(), labels
 						return
 					elif literal == "END":
-						yield None, labels
+						yield (None, None), labels
 						raise EndOfParsingError()
 					elif literal == "DS" or literal == "BLKB":
 						yield self.handleBlkb(), labels

@@ -83,7 +83,9 @@ class Compiler(object):
 
 				self.labels[label] = self.PC
 
-			if command == ".LINK":
+			if command is None:
+				continue
+			elif command == ".LINK":
 				self.PC = arg
 				if self.project is not None:
 					self.link_address = arg
