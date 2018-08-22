@@ -6,7 +6,7 @@ class ExpressionEvaluateError(Exception):
 
 class Expression:
 	def __new__(cls, s):
-		return Deferred(cls.Get(s))
+		return Deferred(cls.Get(s), any)
 
 	class Get:
 		def __init__(self, s):
@@ -27,7 +27,7 @@ class Expression:
 					except KeyError:
 						raise ExpressionEvaluateError("Label '{}' not found".format(self.s))
 
-				return Deferred(label)
+				return Deferred(label, int)
 
 		def deferredRepr(self):
 			return "Expression({!r})".format(self.s)

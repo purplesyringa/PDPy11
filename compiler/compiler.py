@@ -53,18 +53,18 @@ class Compiler:
 	def link(self):
 		array = []
 		for addr, value in self.writes:
-			value = Deferred(value)(self)
+			value = Deferred(value, int)(self)
 
 			if not isinstance(value, list):
 				value = [value]
 
 			for i, value1 in enumerate(value):
-				offset = Deferred(addr + i)(self)
+				offset = Deferred(addr + i, int)(self)
 				if offset >= len(array):
 					array += [0] * (offset - len(array) + 1)
 				array[offset] = value1
 
-		self.link_address = Deferred(self.link_address)(self)
+		self.link_address = Deferred(self.link_address, int)(self)
 		self.output = bytes(array[self.link_address:])
 		return self.build
 
@@ -123,8 +123,8 @@ class Compiler:
 				)
 			elif command == ".ASCII":
 				self.writeBytes(
-					Deferred(arg)
-						.then(lambda string: [ord(char) for char in string])
+					Deferred(arg, str)
+						.then(lambda string: [ord(char) for char in string], list)
 				)
 			elif command == ".MAKE_RAW":
 				self.build.append(("raw", arg))
@@ -154,17 +154,17 @@ class Compiler:
 					)
 				elif command in commands.jmp_commands:
 					offset = arg[0] - self.PC - 2
-					offset = (Deferred(offset)
+					offset = (Deferred(offset, int)
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(octal(offset))))
 							if offset % 2 == 1
 							else offset // 2
-						))
+						), int)
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Too far branch: {} words".format(octal(offset))))
 							if offset < -128 or offset > 127
 							else offset
-						))
+						), int)
 					)
 
 					self.writeWord(
@@ -174,17 +174,17 @@ class Compiler:
 				elif command in commands.imm_arg_commands:
 					max_imm_value = commands.imm_arg_commands[command][1]
 
-					value = (Deferred(arg[0])
+					value = (Deferred(arg[0], int)
 						.then(lambda value: (
 							Deferred.Raise(CompilerError("Too big immediate value: {}".format(octal(value))))
 							if value > max_imm_value
 							else value
-						))
+						), int)
 						.then(lambda value: (
 							Deferred.Raise(CompilerError("Negative immediate value: {}".format(octal(value))))
 							if value < 0
 							else value
-						))
+						), int)
 					)
 
 					self.writeWord(commands.imm_arg_commands[command][0] | (value // 2))
@@ -206,17 +206,17 @@ class Compiler:
 					)
 				elif command == "SOB":
 					offset = self.PC + 2 - arg[1]
-					offset = (Deferred(offset)
+					offset = (Deferred(offset, int)
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(octal(offset))))
 							if offset % 2 == 1
 							else offset // 2
-						))
+						), int)
 						.then(lambda offset: (
 							Deferred.Raise(CompilerError("Too far SOB: {} words".format(octal(offset))))
 							if offset < 0 or offset > 63
 							else offset
-						))
+						), int)
 					)
 
 					self.writeWord(
@@ -248,32 +248,32 @@ class Compiler:
 
 
 	def writeByte(self, byte):
-		byte = (Deferred(byte)
+		byte = (Deferred(byte, int)
 			.then(lambda byte: (
 				Deferred.Raise(CompilerError("Byte {} is too big".format(octal(byte))))
 				if byte >= 256 else byte
-			))
+			), int)
 			.then(lambda byte: (
 				Deferred.Raise(CompilerError("Byte {} is too small".format(octal(byte))))
 				if byte < -256 else byte
-			))
-			.then(lambda byte: byte + 256 if byte < 0 else byte)
+			), int)
+			.then(lambda byte: byte + 256 if byte < 0 else byte, int)
 		)
 
 		self.writes.append((self.PC, byte))
 		self.PC = self.PC + 1
 
 	def writeWord(self, word):
-		word = (Deferred(word)
+		word = (Deferred(word, int)
 			.then(lambda word: (
 				Deferred.Raise(CompilerError("Word {} is too big".format(octal(word))))
 				if word >= 65536 else word
-			))
+			), int)
 			.then(lambda word: (
 				Deferred.Raise(CompilerError("Word {} is too small".format(octal(word))))
 				if word < -65536 else word
-			))
-			.then(lambda word: word + 65536 if word < 0 else word)
+			), int)
+			.then(lambda word: word + 65536 if word < 0 else word, int)
 		)
 
 		self.writes.append((self.PC, word & 0xFF))
@@ -282,11 +282,11 @@ class Compiler:
 
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
-		self.PC = self.PC + Deferred(bytes_).then(len)
+		self.PC = self.PC + Deferred(bytes_, list).then(len, int)
 
 	def writeWords(self, words):
 		self.writes.append((self.PC, words))
-		self.PC = self.PC + Deferred(words).then(len) * 2
+		self.PC = self.PC + Deferred(words, list).then(len, int) * 2
 
 
 	def encodeRegister(self, reg):
