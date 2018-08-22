@@ -4,7 +4,7 @@ from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from . import commands
 from . import util
-from .expression import Expression
+from .expression import Expression, ExpressionEvaluateError
 
 class CompilerError(Exception):
 	pass
@@ -50,7 +50,11 @@ class Compiler(object):
 
 	def link(self):
 		for label in self.labels:
-			Deferred(self.labels[label], int)(self)
+			try:
+				Deferred(self.labels[label], int)(self)
+			except ExpressionEvaluateError as e:
+				print(e)
+				raise SystemExit(1)
 
 		array = []
 		for addr, value in self.writes:
