@@ -84,10 +84,11 @@ class Parser(object):
 				return
 			elif literal == "INCLUDE":
 				yield self.handleInclude(), labels
-				return
+				if self.syntax == "pdp11asm":
+					raise EndOfParsingError()
 			elif literal == "RAW_INCLUDE":
 				yield self.handleInclude(raw=True), labels
-				raise EndOfParsingError()
+				return
 			elif literal == "PDP11":
 				yield self.handlePdp11(), labels
 				return
@@ -346,7 +347,11 @@ class Parser(object):
 						return (reg, "@N(Rn)"), expr
 					else:
 						# @expression
-						return ("PC", "@N(Rn)"), Expression.asOffset(expr)
+						if self.syntax == "pdp11asm":
+							# PDP11Asm bug
+							return ("PC", "@N(Rn)"), expr
+						else:
+							return ("PC", "@N(Rn)"), Expression.asOffset(expr)
 			else:
 				# Rn, -(Rn), expression(Rn), expression or #expression
 				if self.needPunct("-", maybe=True):
