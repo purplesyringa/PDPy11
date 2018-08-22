@@ -175,7 +175,7 @@ if project is not None:
 
 				# Save
 				py11ignore.append((line, isRoot, isDir))
-	except FileNotFoundError:
+	except IOError:
 		pass
 
 	# Get file list
@@ -223,4 +223,9 @@ if project is None:
 if len(out_files) == 0 or project is not None:
 	# Project mode / no out file
 	output_stream = open(output, "wb")
-	output_stream.write(encodeBinRaw(isBin, compiler))
+	if sys.version_info[0] == 2:
+		# Python 2
+		output_stream.write(encodeBinRaw(isBin, compiler))
+	else:
+		# Python 3
+		output_stream.write(encodeBinRaw(isBin, compiler))

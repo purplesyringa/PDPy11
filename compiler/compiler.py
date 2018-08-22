@@ -1,4 +1,5 @@
 import os
+import sys
 from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from . import commands
@@ -8,7 +9,7 @@ from .expression import Expression
 class CompilerError(Exception):
 	pass
 
-class Compiler:
+class Compiler(object):
 	def __init__(self, syntax="py11", link=0o1000, file_list=[], project=None):
 		self.syntax = syntax
 		self.link_address = link
@@ -62,7 +63,7 @@ class Compiler:
 				array[addr + i] = value1
 
 		self.link_address = Deferred(self.link_address, int)(self)
-		self.output = bytes(array[self.link_address:])
+		self.output = array[self.link_address:]
 		return self.build
 
 	def compileFile(self, file, code):
@@ -133,7 +134,12 @@ class Compiler:
 				pass
 			elif command == ".INSERT_FILE":
 				with open(self.resolve(file, arg), "rb") as f:
-					self.writeBytes([char for char in f.read()])
+					if sys.version_info[0] == 2:
+						# Python 2
+						self.writeBytes([ord(char) for char in f.read()])
+					else:
+						# Python 3
+						self.writeBytes([char for char in f.read()])
 			elif command == ".EQU":
 				name, value = arg
 				if name in self.labels:

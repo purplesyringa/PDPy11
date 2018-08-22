@@ -1,16 +1,25 @@
+import sys
 from .deferred import Deferred
 
 def encodeBinRaw(isBin, compiler):
 	raw = compiler.output
+
 	if isBin:
-		return bytes([
+		header = [
 			compiler.link_address & 0xFF,
 			compiler.link_address >> 8,
 			len(raw) & 0xFF,
 			len(raw) >> 8
-		]) + raw
+		]
 	else:
-		return raw
+		header = []
+
+	if sys.version_info[0] == 2:
+		# Python 2
+		return "".join([chr(char) for char in header + raw])
+	else:
+		# Python 3
+		return bytes(header + raw)
 
 
 def int8ToUint8(int8):

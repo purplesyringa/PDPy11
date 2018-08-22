@@ -5,11 +5,11 @@ from .util import octal
 class ExpressionEvaluateError(Exception):
 	pass
 
-class Expression:
+class Expression(object):
 	def __new__(cls, s):
 		return Deferred(cls.Get(s), int)
 
-	class Get:
+	class Get(object):
 		def __init__(self, s):
 			self.s = s
 

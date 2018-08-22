@@ -12,7 +12,7 @@ class EndOfParsingError(Exception):
 class InvalidError(Exception):
 	pass
 
-class Parser:
+class Parser(object):
 	def __init__(self, code, syntax):
 		self.code = code
 		self.pos = 0
@@ -775,7 +775,7 @@ class Parser:
 			raise InvalidError("Got EOF")
 
 
-class Transaction:
+class Transaction(object):
 	def __init__(self, parser, maybe=False, stage=None):
 		self.parser = parser
 		self.maybe = maybe
@@ -791,17 +791,17 @@ class Transaction:
 			pass
 		elif isinstance(err, EndOfParsingError):
 			# It doesn't make sense to parse further
-			raise err
+			return False
 		elif isinstance(err, InvalidError):
 			# Could not parse token as ...
 			if self.maybe and self.allow_rollback:
 				self.parser.pos = self.pos
 				return True
 			else:
-				raise err
+				return False
 		else:
 			# Some weird bug
-			raise err
+			return False
 
 	def noRollback(self):
 		# If encounter InvalidError, always reraise it
