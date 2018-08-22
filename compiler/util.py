@@ -25,3 +25,8 @@ def int8ToUint8(int8):
 			return int8 + 256
 		else:
 			return int8
+
+
+
+def octal(n):
+	return oct(int(n)).replace("0o", "")

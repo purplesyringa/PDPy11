@@ -5,9 +5,6 @@ from . import commands
 from . import util
 from .expression import Expression
 
-def octal(n):
-	return oct(int(n)).replace("0o", "")
-
 class CompilerError(Exception):
 	pass
 
@@ -156,12 +153,12 @@ class Compiler:
 					offset = arg[0] - self.PC - 2
 					offset = (Deferred(offset, int)
 						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(octal(offset))))
+							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(util.octal(offset))))
 							if offset % 2 == 1
 							else offset // 2
 						), int)
 						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Too far branch: {} words".format(octal(offset))))
+							Deferred.Raise(CompilerError("Too far branch: {} words".format(util.octal(offset))))
 							if offset < -128 or offset > 127
 							else offset
 						), int)
@@ -176,12 +173,12 @@ class Compiler:
 
 					value = (Deferred(arg[0], int)
 						.then(lambda value: (
-							Deferred.Raise(CompilerError("Too big immediate value: {}".format(octal(value))))
+							Deferred.Raise(CompilerError("Too big immediate value: {}".format(util.octal(value))))
 							if value > max_imm_value
 							else value
 						), int)
 						.then(lambda value: (
-							Deferred.Raise(CompilerError("Negative immediate value: {}".format(octal(value))))
+							Deferred.Raise(CompilerError("Negative immediate value: {}".format(util.octal(value))))
 							if value < 0
 							else value
 						), int)
@@ -208,12 +205,12 @@ class Compiler:
 					offset = self.PC + 2 - arg[1]
 					offset = (Deferred(offset, int)
 						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(octal(offset))))
+							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(util.octal(offset))))
 							if offset % 2 == 1
 							else offset // 2
 						), int)
 						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Too far SOB: {} words".format(octal(offset))))
+							Deferred.Raise(CompilerError("Too far SOB: {} words".format(util.octal(offset))))
 							if offset < 0 or offset > 63
 							else offset
 						), int)
@@ -250,11 +247,11 @@ class Compiler:
 	def writeByte(self, byte):
 		byte = (Deferred(byte, int)
 			.then(lambda byte: (
-				Deferred.Raise(CompilerError("Byte {} is too big".format(octal(byte))))
+				Deferred.Raise(CompilerError("Byte {} is too big".format(util.octal(byte))))
 				if byte >= 256 else byte
 			), int)
 			.then(lambda byte: (
-				Deferred.Raise(CompilerError("Byte {} is too small".format(octal(byte))))
+				Deferred.Raise(CompilerError("Byte {} is too small".format(util.octal(byte))))
 				if byte < -256 else byte
 			), int)
 			.then(lambda byte: byte + 256 if byte < 0 else byte, int)
@@ -266,11 +263,11 @@ class Compiler:
 	def writeWord(self, word):
 		word = (Deferred(word, int)
 			.then(lambda word: (
-				Deferred.Raise(CompilerError("Word {} is too big".format(octal(word))))
+				Deferred.Raise(CompilerError("Word {} is too big".format(util.octal(word))))
 				if word >= 65536 else word
 			), int)
 			.then(lambda word: (
-				Deferred.Raise(CompilerError("Word {} is too small".format(octal(word))))
+				Deferred.Raise(CompilerError("Word {} is too small".format(util.octal(word))))
 				if word < -65536 else word
 			), int)
 			.then(lambda word: word + 65536 if word < 0 else word, int)
