@@ -201,7 +201,7 @@ class Parser(object):
 	def handleLink(self):
 		# ORG / .LINK / .LA
 		with Transaction(self, maybe=False, stage=".LINK"):
-			return ".LINK", self.needValue()
+			return ".LINK", self.needExpression()
 
 	def handleInclude(self, raw=False):
 		# .INCLUDE / .RAW_INCLUDE
@@ -227,12 +227,12 @@ class Parser(object):
 	def handleByte(self):
 		# .DB / .BYTE / DB
 		with Transaction(self, maybe=False, stage=".BYTE"):
-			return ".BYTE", self.needValue()
+			return ".BYTE", self.needExpression()
 
 	def handleWord(self):
 		# .DW / .WORD / DW
 		with Transaction(self, maybe=False, stage=".WORD"):
-			return ".WORD", self.needValue()
+			return ".WORD", self.needExpression()
 
 	def handleEnd(self):
 		return ".END", None
@@ -240,12 +240,12 @@ class Parser(object):
 	def handleBlkb(self):
 		# .DS / .BLKB / DS
 		with Transaction(self, maybe=False, stage=".BLKB"):
-			return ".BLKB", self.needValue()
+			return ".BLKB", self.needExpression()
 
 	def handleBlkw(self):
 		# .BLKW
 		with Transaction(self, maybe=False, stage=".BLKW"):
-			return ".BLKW", self.needValue()
+			return ".BLKW", self.needExpression()
 
 	def handleEven(self):
 		# .EVEN
@@ -254,7 +254,7 @@ class Parser(object):
 	def handleAlign(self):
 		# ALIGN
 		with Transaction(self, maybe=False, stage=".ALIGN"):
-			return ".ALIGN", self.needValue()
+			return ".ALIGN", self.needExpression()
 
 	def handleAscii(self, term=""):
 		# .ASCII/.ASCIZ
