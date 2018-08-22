@@ -67,7 +67,7 @@ class Compiler(object):
 		return self.build
 
 	def compileFile(self, file, code):
-		parser = Parser(code, syntax=self.syntax)
+		parser = Parser(file, code, syntax=self.syntax)
 
 		for (command, arg), labels in parser.parse():
 			for label in labels:

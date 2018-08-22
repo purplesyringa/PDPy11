@@ -13,13 +13,16 @@ class InvalidError(Exception):
 	pass
 
 class Parser(object):
-	def __init__(self, code, syntax):
+	def __init__(self, file, code, syntax):
 		self.code = code
 		self.pos = 0
+		self.file = file
 		self.decimal = False
 		self.syntax = syntax
 		self.last_label = ""
 		self.last_mark = 0
+		self.stage_stack = []
+		self.last_error_stages = []
 
 	def parse(self):
 		try:
@@ -28,6 +31,22 @@ class Parser(object):
 					yield cmd
 		except EndOfParsingError:
 			pass
+		except InvalidError as e:
+			# Position to line/col
+			line = len(self.code[:self.pos].split("\n"))
+			try:
+				last_lf = self.code[:self.pos].rindex("\n")
+			except ValueError:
+				last_lf = 0
+			col = self.pos - last_lf
+
+			print("Syntax error")
+			print(e)
+			print("  at file", self.file, "(line {}, column {})".format(line, col))
+			for stage in self.last_error_stages:
+				if stage is not None:
+					print("  at", stage)
+			raise SystemExit(1)
 
 	def parseCommand(self, labels=None):
 		if self.isEOF():
@@ -38,130 +57,137 @@ class Parser(object):
 
 		self.current_labels = labels
 
-		literal = self.needLiteral(maybe=True)
+		with Transaction(self, maybe=False, stage="command") as t:
+			pos = self.pos
+			literal = self.needLiteral(maybe=True)
 
-		# First, handle metacommands (directives)
-		if literal == "ORG":
-			yield self.handleLink(), labels
-			return
-		elif literal == "DB":
-			yield self.handleByte(), labels
-			return
-		elif literal == "DW":
-			yield self.handleWord(), labels
-			return
-		elif literal == "END":
-			yield None, labels
-			raise EndOfParsingError()
-		elif literal == "DS":
-			yield self.handleBlkb(), labels
-			return
-		elif literal == "ALIGN":
-			yield self.handleAlign(), labels
-			return
-		elif literal == "MAKE_RAW":
-			yield self.handleMakeRaw(), labels
-			return
-		elif literal == "MAKE_BK0010_ROM":
-			yield self.handleMakeBin(), labels
-			return
-		elif literal == "CONVERT1251TOKOI8R":
-			yield self.handleConvert1251toKOI8R(), labels
-			return
-		elif literal == "DECIMALNUMBERS":
-			yield self.handleDecimalNumbers(), labels
-			return
-		elif literal == "INSERT_FILE":
-			yield self.handleInsertFile(), labels
-			return
-
-		# Maybe it's a metacommand that starts with a dot?
-		if literal is None and self.needPunct(".", maybe=True):
-			literal = self.needLiteral()
-
-			if literal == "LINK" or literal == "LA":
+			# First, handle metacommands (directives)
+			if literal == "ORG":
 				yield self.handleLink(), labels
 				return
-			elif literal == "INCLUDE":
-				yield self.handleInclude(), labels
-				if self.syntax == "pdp11asm":
-					raise EndOfParsingError()
-			elif literal == "RAW_INCLUDE":
-				yield self.handleInclude(raw=True), labels
-				return
-			elif literal == "PDP11":
-				yield self.handlePdp11(), labels
-				return
-			elif literal == "I8080":
-				yield self.handleI8080(), labels
-				return
-			elif literal == "SYNTAX":
-				yield self.handleSyntax(), labels
-				return
-			elif literal == "DB" or literal == "BYTE":
+			elif literal == "DB":
 				yield self.handleByte(), labels
 				return
-			elif literal == "DW" or literal == "WORD":
+			elif literal == "DW":
 				yield self.handleWord(), labels
 				return
 			elif literal == "END":
 				yield None, labels
 				raise EndOfParsingError()
-			elif literal == "DS" or literal == "BLKB":
+			elif literal == "DS":
 				yield self.handleBlkb(), labels
 				return
-			elif literal == "BLKW":
-				yield self.handleBlkw(), labels
+			elif literal == "ALIGN":
+				yield self.handleAlign(), labels
 				return
-			elif literal == "EVEN":
-				yield self.handleEven(), labels
+			elif literal == "MAKE_RAW":
+				yield self.handleMakeRaw(), labels
 				return
-			elif literal == "ASCII":
-				yield self.handleAscii(term=""), labels
+			elif literal == "MAKE_BK0010_ROM":
+				yield self.handleMakeBin(), labels
 				return
-			elif literal == "ASCIZ":
-				yield self.handleAscii(term="\x00"), labels
+			elif literal == "CONVERT1251TOKOI8R":
+				yield self.handleConvert1251toKOI8R(), labels
 				return
-			else:
-				raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
+			elif literal == "DECIMALNUMBERS":
+				yield self.handleDecimalNumbers(), labels
+				return
+			elif literal == "INSERT_FILE":
+				yield self.handleInsertFile(), labels
+				return
 
-		if literal is None:
-			# Maybe integer label?
-			label = self.needInteger()
-			self.needPunct(":")
+			# Maybe it's a metacommand that starts with a dot?
+			if literal is None and self.needPunct(".", maybe=True):
+				with Transaction(self, maybe=False, stage=".COMMAND") as t:
+					literal = self.needLiteral()
 
-			# It's a label
-			label = "{}@{}".format(self.last_label, label)
-			for cmd in self.parseCommand(labels=labels + [label]):
-				yield cmd
-			return
+					if literal == "LINK" or literal == "LA":
+						yield self.handleLink(), labels
+						return
+					elif literal == "INCLUDE":
+						yield self.handleInclude(), labels
+						if self.syntax == "pdp11asm":
+							raise EndOfParsingError()
+					elif literal == "RAW_INCLUDE":
+						yield self.handleInclude(raw=True), labels
+						return
+					elif literal == "PDP11":
+						yield self.handlePdp11(), labels
+						return
+					elif literal == "I8080":
+						yield self.handleI8080(), labels
+						return
+					elif literal == "SYNTAX":
+						yield self.handleSyntax(), labels
+						return
+					elif literal == "DB" or literal == "BYTE":
+						yield self.handleByte(), labels
+						return
+					elif literal == "DW" or literal == "WORD":
+						yield self.handleWord(), labels
+						return
+					elif literal == "END":
+						yield None, labels
+						raise EndOfParsingError()
+					elif literal == "DS" or literal == "BLKB":
+						yield self.handleBlkb(), labels
+						return
+					elif literal == "BLKW":
+						yield self.handleBlkw(), labels
+						return
+					elif literal == "EVEN":
+						yield self.handleEven(), labels
+						return
+					elif literal == "ASCII":
+						yield self.handleAscii(term=""), labels
+						return
+					elif literal == "ASCIZ":
+						yield self.handleAscii(term="\x00"), labels
+						return
+					else:
+						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
+
+			if literal is None:
+				# Maybe integer label?
+				label = self.needInteger()
+				self.needPunct(":")
+
+				# It's a label
+				label = "{}@{}".format(self.last_label, label)
+				t.exit()
+				for cmd in self.parseCommand(labels=labels + [label]):
+					yield cmd
+				return
 
 
-		# It is either a command or a label, or EQU
-		if self.needPunct(":", maybe=True):
-			# It's a label
-			self.last_label = literal
-			for cmd in self.parseCommand(labels=labels + [literal]):
-				yield cmd
-			return
-		elif self.needPunct("=", maybe=True):
-			# EQU
-			expr = self.needExpression()
-			yield (".EQU", (literal, expr)), labels
-			return
-
-		with Transaction(self, maybe=True) as t:
-			if self.needLiteral() == "EQU":
-				t.noRollback("EQU")
-
+			# It is either a command or a label, or EQU
+			if self.needPunct(":", maybe=True):
+				# It's a label
+				self.last_label = literal
+				t.exit()
+				for cmd in self.parseCommand(labels=labels + [literal]):
+					yield cmd
+				return
+			elif self.needPunct("=", maybe=True):
+				# EQU
 				expr = self.needExpression()
 				yield (".EQU", (literal, expr)), labels
 				return
-			else:
-				raise InvalidError("Rollback")
 
-		# It's a command
-		yield self.handleCommand(literal), labels
+			with Transaction(self, maybe=True) as t:
+				if self.needLiteral() == "EQU":
+					t.noRollback()
+
+					with Transaction(self, maybe=False, stage="EQU") as t:
+						expr = self.needExpression()
+						yield (".EQU", (literal, expr)), labels
+						return
+				else:
+					raise InvalidError("Rollback")
+
+			# It's a command
+			self.pos = pos
+			yield self.handleCommand(), labels
 
 	def mark(self):
 		label = ".{}".format(self.last_mark)
@@ -173,14 +199,16 @@ class Parser(object):
 
 	def handleLink(self):
 		# ORG / .LINK / .LA
-		return ".LINK", self.needValue()
+		with Transaction(self, maybe=False, stage=".LINK"):
+			return ".LINK", self.needValue()
 
 	def handleInclude(self, raw=False):
 		# .INCLUDE / .RAW_INCLUDE
-		if raw:
-			return ".INCLUDE", self.needRaw()
-		else:
-			return ".INCLUDE", self.needString()
+		with Transaction(self, maybe=False, stage=".INCLUDE"):
+			if raw:
+				return ".INCLUDE", self.needRaw()
+			else:
+				return ".INCLUDE", self.needString()
 
 	def handlePdp11(self):
 		return ".PDP11", None
@@ -189,28 +217,34 @@ class Parser(object):
 		return ".I8080", None
 
 	def handleSyntax(self):
-		syntax = self.needLiteral().lower()
-		self.syntax = syntax
-		return ".SYNTAX", syntax
+		# .SYNTAX
+		with Transaction(self, maybe=False, stage=".SYNTAX"):
+			syntax = self.needLiteral().lower()
+			self.syntax = syntax
+			return ".SYNTAX", syntax
 
 	def handleByte(self):
 		# .DB / .BYTE / DB
-		return ".BYTE", self.needValue()
+		with Transaction(self, maybe=False, stage=".BYTE"):
+			return ".BYTE", self.needValue()
 
 	def handleWord(self):
 		# .DW / .WORD / DW
-		return ".WORD", self.needValue()
+		with Transaction(self, maybe=False, stage=".WORD"):
+			return ".WORD", self.needValue()
 
 	def handleEnd(self):
 		return ".END", None
 
 	def handleBlkb(self):
 		# .DS / .BLKB / DS
-		return ".BLKB", self.needValue()
+		with Transaction(self, maybe=False, stage=".BLKB"):
+			return ".BLKB", self.needValue()
 
 	def handleBlkw(self):
 		# .BLKW
-		return ".BLKW", self.needValue()
+		with Transaction(self, maybe=False, stage=".BLKW"):
+			return ".BLKW", self.needValue()
 
 	def handleEven(self):
 		# .EVEN
@@ -218,70 +252,82 @@ class Parser(object):
 
 	def handleAlign(self):
 		# ALIGN
-		return ".ALIGN", self.needValue()
+		with Transaction(self, maybe=False, stage=".ALIGN"):
+			return ".ALIGN", self.needValue()
 
 	def handleAscii(self, term=""):
 		# .ASCII/.ASCIZ
-		return ".ASCII", self.needString() + term
+		with Transaction(self, maybe=False, stage=".ASCII / .ASCIZ"):
+			return ".ASCII", self.needString() + term
 
 	def handleMakeRaw(self):
-		return ".MAKE_RAW", self.needString(maybe=True)
+		with Transaction(self, maybe=False, stage=".MAKE_RAW"):
+			return ".MAKE_RAW", self.needString(maybe=True)
 
 	def handleMakeBin(self):
-		return ".MAKE_BIN", self.needString(maybe=True)
+		with Transaction(self, maybe=False, stage=".MAKE_BIN"):
+			return ".MAKE_BIN", self.needString(maybe=True)
 
 	def handleConvert1251toKOI8R(self):
-		return ".CONVERT1251TOKOI8R", self.needBool()
+		with Transaction(self, maybe=False, stage=".CONVERT1251TOKOI8R"):
+			return ".CONVERT1251TOKOI8R", self.needBool()
 
 	def handleDecimalNumbers(self):
-		self.decimal = self.needBool()
-		return ".DECIMALNUMBERS", self.decimal
+		with Transaction(self, maybe=False, stage=".DECIMALNUMBERS"):
+			self.decimal = self.needBool()
+			return ".DECIMALNUMBERS", self.decimal
 
 	def handleInsertFile(self):
-		return ".INSERT_FILE", self.needString()
+		with Transaction(self, maybe=False, stage=".INSERT_FILE"):
+			return ".INSERT_FILE", self.needString()
 
-	def handleCommand(self, command_name):
-		if command_name in commands.zero_arg_commands:
-			# No arguments expected
-			return command_name, ()
-		elif command_name in commands.one_arg_commands:
-			# Need exactly 1 argument
-			arg = self.needArgument()
-			return command_name, (arg,)
-		elif command_name in commands.jmp_commands:
-			# Need 1 label, or relative address
-			expr = self.needExpression(isLabel=True)
-			return command_name, (expr,)
-		elif command_name in commands.imm_arg_commands:
-			# Need 1 expression
-			expr = self.needExpression()
-			return command_name, (expr,)
-		elif command_name in commands.two_arg_commands:
-			# Need exactly 2 arguments
-			arg1 = self.needArgument()
-			self.needPunct(",")
-			arg2 = self.needArgument()
-			return command_name, (arg1, arg2)
-		elif command_name in commands.reg_commands:
-			# Need register & argument
-			reg1 = self.needRegister()
-			self.needPunct(",")
-			arg2 = self.needArgument()
-			return command_name, (reg1, arg2)
-		elif command_name == "RTS":
-			# Need register
-			reg = self.needRegister()
-			return command_name, (reg,)
-		elif command_name == "SOB":
-			# Need register & relative address (or label)
-			reg1 = self.needRegister()
-			self.needPunct(",")
-			arg2 = self.needExpression(isLabel=True)
-			return command_name, (reg1, arg2)
-		else:
-			raise InvalidError(
-				"Expected command name, got '{}'".format(command_name)
-			)
+	def handleCommand(self):
+		self.skipWhitespace()
+
+		with Transaction(self, maybe=False, stage="compilable command") as t:
+			command_name = self.needLiteral()
+
+			if command_name in commands.zero_arg_commands:
+				# No arguments expected
+				return command_name, ()
+			elif command_name in commands.one_arg_commands:
+				# Need exactly 1 argument
+				arg = self.needArgument()
+				return command_name, (arg,)
+			elif command_name in commands.jmp_commands:
+				# Need 1 label, or relative address
+				expr = self.needExpression(isLabel=True)
+				return command_name, (expr,)
+			elif command_name in commands.imm_arg_commands:
+				# Need 1 expression
+				expr = self.needExpression()
+				return command_name, (expr,)
+			elif command_name in commands.two_arg_commands:
+				# Need exactly 2 arguments
+				arg1 = self.needArgument()
+				self.needPunct(",")
+				arg2 = self.needArgument()
+				return command_name, (arg1, arg2)
+			elif command_name in commands.reg_commands:
+				# Need register & argument
+				reg1 = self.needRegister()
+				self.needPunct(",")
+				arg2 = self.needArgument()
+				return command_name, (reg1, arg2)
+			elif command_name == "RTS":
+				# Need register
+				reg = self.needRegister()
+				return command_name, (reg,)
+			elif command_name == "SOB":
+				# Need register & relative address (or label)
+				reg1 = self.needRegister()
+				self.needPunct(",")
+				arg2 = self.needExpression(isLabel=True)
+				return command_name, (reg1, arg2)
+			else:
+				raise InvalidError(
+					"Expected command name, got '{}'".format(command_name)
+				)
 
 
 	def needArgument(self, maybe=False):
@@ -433,10 +479,13 @@ class Parser(object):
 		with Transaction(self, maybe=maybe, stage="value") as t:
 			# Char (or two)
 			string = self.needString(maybe=True)
+
 			if string is not None:
 				t.noRollback()
 				if len(string) == 0:
-					return Expression(0)
+					raise InvalidError(
+						"#'string': expected 1 or 2 chars, got 0"
+					)
 				elif len(string) == 1:
 					return Expression(ord(string[0]))
 				elif len(string) == 2:
@@ -470,10 +519,9 @@ class Parser(object):
 
 			# Label
 			label = self.needLiteral(maybe=True)
-			if label is not None:
-				return Expression(label)
-
-			raise InvalidError("Expected integer, string, . (dot) or label")
+			if label is None:
+				raise InvalidError("Expected integer, string, . (dot) or label")
+			return Expression(label)
 
 
 
@@ -511,7 +559,7 @@ class Parser(object):
 
 
 	def needPunct(self, char, maybe=False):
-		with Transaction(self, maybe=maybe, stage="'{}'".format(char)):
+		with Transaction(self, maybe=maybe, stage="sign '{}'".format(char)):
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -522,12 +570,15 @@ class Parser(object):
 				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
 
 	def needChar(self, char, maybe=False):
-		with Transaction(self, maybe=maybe, stage="'{}'".format(char)):
-			if self.code[self.pos].upper() == char:
-				self.pos += 1
-				return char
-			else:
-				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+		with Transaction(self, maybe=maybe, stage="character '{}'".format(char)):
+			try:
+				if self.code[self.pos].upper() == char:
+					self.pos += 1
+					return char
+				else:
+					raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+			except IndexError:
+				raise InvalidError("Expected '{}', got EOF".format(char))
 
 
 	def needInteger(self, maybe=False):
@@ -669,7 +720,7 @@ class Parser(object):
 			self.skipWhitespace()
 
 			punct = ""
-			if self.code[self.pos] in "\"/":
+			if self.code[self.pos] in "\"'/":
 				punct = self.code[self.pos]
 				self.pos += 1
 				t.noRollback()
@@ -680,35 +731,35 @@ class Parser(object):
 
 			while True:
 				try:
-					if self.code[self.pos] == "\\":
-						# Escape character
-						self.pos += 1
-
-						if self.code[self.pos] in "nN":
-							self.pos += 1
-							string += "\n"
-						elif self.code[self.pos] in "rR":
-							self.pos += 1
-							string += "\r"
-						elif self.code[self.pos] in "tT":
-							self.pos += 1
-							string += "\t"
-						elif self.code[self.pos] in "sS":
-							self.pos += 1
-							string += " "
-						elif self.code[self.pos] in "xX":
-							self.pos += 1
-							num = self.code[self.pos]
-							self.pos += 1
-							num += self.code[self.pos]
-							self.pos += 1
-							string += chr(int(num, 16))
-						elif self.code[self.pos] in "\\\"/":
-							self.pos += 1
-							string += self.code[self.pos]
-						else:
-							raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{}'".format(self.code[self.pos]))
-					elif self.code[self.pos] == punct:
+					#if self.code[self.pos] == "\\":
+					#	# Escape character
+					#	self.pos += 1
+					#
+					#	if self.code[self.pos] in "nN":
+					#		self.pos += 1
+					#		string += "\n"
+					#	elif self.code[self.pos] in "rR":
+					#		self.pos += 1
+					#		string += "\r"
+					#	elif self.code[self.pos] in "tT":
+					#		self.pos += 1
+					#		string += "\t"
+					#	elif self.code[self.pos] in "sS":
+					#		self.pos += 1
+					#		string += " "
+					#	elif self.code[self.pos] in "xX":
+					#		self.pos += 1
+					#		num = self.code[self.pos]
+					#		self.pos += 1
+					#		num += self.code[self.pos]
+					#		self.pos += 1
+					#		string += chr(int(num, 16))
+					#	elif self.code[self.pos] in "\\\"/":
+					#		self.pos += 1
+					#		string += self.code[self.pos]
+					#	else:
+					#		raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{}'".format(self.code[self.pos]))
+					if self.code[self.pos] == punct:
 						# EOS
 						self.pos += 1
 						return string
@@ -717,7 +768,8 @@ class Parser(object):
 						self.pos += 1
 				except IndexError:
 					# EOF
-					raise InvalidError("Expected string, got EOF")
+					with Transaction(self, maybe=False):
+						raise InvalidError("Expected string terminator, got EOF")
 
 
 	def needBool(self, maybe=False):
@@ -789,18 +841,30 @@ class Transaction(object):
 	def __enter__(self):
 		self.pos = self.parser.pos
 		self.allow_rollback = True
+		self.parser.stage_stack.append(self.stage)
+		self.exitted = False
 		return self
 	def __exit__(self, err_cls, err, traceback):
+		stack = self.parser.stage_stack[:]
+		if not self.exitted:
+			self.parser.stage_stack.pop()
+
 		if err_cls is None:
 			# Success
-			pass
+			return
 		elif isinstance(err, EndOfParsingError):
 			# It doesn't make sense to parse further
 			return False
 		elif isinstance(err, InvalidError):
 			# Could not parse token as ...
+			if self.parser.last_error_stages is None:
+				# Rollback to the place from which we couldn't match
+				self.parser.pos = self.pos
+				self.parser.last_error_stages = stack
+
 			if self.maybe and self.allow_rollback:
 				self.parser.pos = self.pos
+				self.parser.last_error_stages = None
 				return True
 			else:
 				return False
@@ -808,6 +872,15 @@ class Transaction(object):
 			# Some weird bug
 			return False
 
+	def reraise(self, exception):
+		self.parser.last_error_stages = self.parser.stage_stack[:]
+		raise exception
+
 	def noRollback(self):
 		# If encounter InvalidError, always reraise it
 		self.allow_rollback = False
+
+	def exit(self):
+		if not self.exitted:
+			self.parser.stage_stack.pop()
+		self.exitted = True
