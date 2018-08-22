@@ -50,16 +50,16 @@ class Compiler:
 	def link(self):
 		array = []
 		for addr, value in self.writes:
-			value = Deferred(value, int)(self)
+			value = Deferred(value, any)(self)
 
 			if not isinstance(value, list):
 				value = [value]
 
+			addr = Deferred(addr, int)(self)
 			for i, value1 in enumerate(value):
-				offset = Deferred(addr + i, int)(self)
-				if offset >= len(array):
-					array += [0] * (offset - len(array) + 1)
-				array[offset] = value1
+				if addr + i >= len(array):
+					array += [0] * (addr + i - len(array) + 1)
+				array[addr + i] = value1
 
 		self.link_address = Deferred(self.link_address, int)(self)
 		self.output = bytes(array[self.link_address:])
@@ -97,8 +97,8 @@ class Compiler:
 				bytes_ = Deferred.Repeat(arg, 0)
 				self.writeBytes(bytes_)
 			elif command == ".BLKW":
-				words = Deferred.Repeat(arg, 0)
-				self.writeWords(words)
+				words = Deferred.Repeat(arg * 2, 0)
+				self.writeBytes(words)
 			elif command == ".EVEN":
 				self.writeBytes(
 					Deferred.If(
@@ -219,7 +219,7 @@ class Compiler:
 					self.writeWord(
 						0o077000 |
 						(self.encodeRegister(arg[0]) << 6) |
-						(offset // 2)
+						offset
 					)
 				else:
 					raise CompilerError("Unknown command {}".format(command))
@@ -280,10 +280,6 @@ class Compiler:
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
 		self.PC = self.PC + Deferred(bytes_, list).then(len, int)
-
-	def writeWords(self, words):
-		self.writes.append((self.PC, words))
-		self.PC = self.PC + Deferred(words, list).then(len, int) * 2
 
 
 	def encodeRegister(self, reg):
