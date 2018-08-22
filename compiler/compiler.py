@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 from .parser import Parser, EndOfParsingError
@@ -37,7 +38,12 @@ class Compiler(object):
 		with open(file) as f:
 			code = f.read()
 
-		self.compileFile(file, code)
+		try:
+			self.compileFile(file, code)
+		except CompilerError as e:
+			print(e)
+			print("  at file", file)
+			raise SystemExit(1)
 
 	def resolve(self, from_, file):
 		# Resolve file path
