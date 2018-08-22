@@ -49,29 +49,29 @@ class Compiler(object):
 			return os.path.join(os.path.dirname(from_), file)
 
 	def link(self):
-		for label in self.labels:
-			try:
+		try:
+			for label in self.labels:
 				Deferred(self.labels[label], int)(self)
-			except ExpressionEvaluateError as e:
-				print(e)
-				raise SystemExit(1)
 
-		array = []
-		for addr, value in self.writes:
-			value = Deferred(value, any)(self)
+			array = []
+			for addr, value in self.writes:
+				value = Deferred(value, any)(self)
 
-			if not isinstance(value, list):
-				value = [value]
+				if not isinstance(value, list):
+					value = [value]
 
-			addr = Deferred(addr, int)(self)
-			for i, value1 in enumerate(value):
-				if addr + i >= len(array):
-					array += [0] * (addr + i - len(array) + 1)
-				array[addr + i] = value1
+				addr = Deferred(addr, int)(self)
+				for i, value1 in enumerate(value):
+					if addr + i >= len(array):
+						array += [0] * (addr + i - len(array) + 1)
+					array[addr + i] = value1
 
-		self.link_address = Deferred(self.link_address, int)(self)
-		self.output = array[self.link_address:]
-		return self.build
+			self.link_address = Deferred(self.link_address, int)(self)
+			self.output = array[self.link_address:]
+			return self.build
+		except ExpressionEvaluateError as e:
+			print(e)
+			raise SystemExit(1)
 
 	def compileFile(self, file, code):
 		parser = Parser(file, code, syntax=self.syntax)
@@ -96,9 +96,11 @@ class Compiler(object):
 			elif command == ".SYNTAX":
 				pass
 			elif command == ".BYTE":
-				self.writeByte(arg)
+				for byte in arg:
+					self.writeByte(byte)
 			elif command == ".WORD":
-				self.writeWord(arg)
+				for word in arg:
+					self.writeWord(word)
 			elif command == ".END":
 				break
 			elif command == ".BLKB":

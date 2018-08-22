@@ -227,12 +227,18 @@ class Parser(object):
 	def handleByte(self):
 		# .DB / .BYTE / DB
 		with Transaction(self, maybe=False, stage=".BYTE"):
-			return ".BYTE", self.needExpression()
+			values = [self.needExpression()]
+			while self.needPunct(",", maybe=True):
+				values.append(self.needExpression())
+			return ".BYTE", values
 
 	def handleWord(self):
 		# .DW / .WORD / DW
 		with Transaction(self, maybe=False, stage=".WORD"):
-			return ".WORD", self.needExpression()
+			values = [self.needExpression()]
+			while self.needPunct(",", maybe=True):
+				values.append(self.needExpression())
+			return ".WORD", values
 
 	def handleEnd(self):
 		return ".END", None
