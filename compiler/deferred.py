@@ -2,7 +2,27 @@ import operator
 import inspect
 import types
 
-ops_signature = {}
+ops_signature = {
+	(int, "+", int): int,
+	(int, "-", int): int,
+	(int, "*", int): int,
+	(int, "//", int): int,
+	(int, "%", int): int,
+	(int, "<<", int): int,
+	(int, ">>", int): int,
+	(int, "&", int): int,
+	(int, "|", int): int,
+	(int, "^", int): int,
+	(int, "==", int): bool,
+	(int, "!=", int): bool,
+	(int, "<", int): bool,
+	(int, ">", int): bool,
+	(int, "<=", int): bool,
+	(int, ">=", int): bool,
+	("-", int): int,
+	("+", int): int,
+	("~", int): int,
+}
 
 class Lambda(object):
 	def __init__(self, l, optext=None, op=None, r=None):
@@ -50,7 +70,7 @@ def infix(text, op):
 		else:
 			res_type = ops_signature.get((self.type, text, type(other)), any)
 			defer = Deferred(self, res_type)
-			defer.pending_math.append((text, op, other, False))
+			defer.addPendingMath(text, op, other, reverse=False)
 			return defer
 	return infix
 
@@ -59,13 +79,13 @@ def rinfix(text, op):
 		# Object . Deferred
 		res_type = ops_signature.get((type(other), text, self.type), any)
 		defer = Deferred(self, res_type)
-		defer.pending_math.append((text, op, other, True))
+		defer.addPendingMath(text, op, other, reverse=True)
 		return defer
 	return rinfix
 
 def prefix(text, op):
 	def prefix(self):
-		res_type = ops_signature.get((text, text, self.type), any)
+		res_type = ops_signature.get((text, self.type), any)
 		return Deferred(Lambda(self, text, op), res_type)
 	return prefix
 
@@ -108,7 +128,7 @@ class Deferred(object):
 	def __init__(self, f, tp=None):
 		if isinstance(f, Deferred):
 			self.f = f.f
-			self.pending_math = f.pending_math[:]
+			self.pending_math = [obj[:] for obj in f.pending_math]
 			self.cached = f.cached
 			self.cache = f.cache
 			self.type = tp if tp is not None else f.type
@@ -117,7 +137,7 @@ class Deferred(object):
 			self.pending_math = []
 			self.cached = False
 			self.cache = None
-			self.type = type(f)
+			self.type = tp if tp is not None else type(f)
 
 		self.is_evaluating = False
 		self.repr_disabled = False
@@ -148,6 +168,50 @@ class Deferred(object):
 		self.cached = True
 		self.cache = result
 		return result
+
+	def addPendingMath(self, optext, op, other, reverse=False):
+		if self.isA(int):
+			if len(self.pending_math) > 0:
+				last_optext = self.pending_math[-1][0]
+				last_reverse = self.pending_math[-1][3]
+				if last_optext == optext and not reverse and not last_reverse:
+					if optext in ("+", ">>", "<<"):
+						# Optimizable by sum
+						self.pending_math[-1][2] += other
+						return
+					elif optext == "*":
+						# Optimizable by multiplication
+						self.pending_math[-1][2] *= other
+						return
+					elif optext == "&":
+						# Optimizable by &
+						self.pending_math[-1][2] &= other
+						return
+					elif optext == "|":
+						# Optimizable by |
+						self.pending_math[-1][2] &= other
+						return
+					elif optext == "^":
+						# Optimizable by ^
+						self.pending_math[-1][2] &= other
+						return
+
+			if optext == "-":
+				# Reverse -
+				optext = "+"
+				op = operator.add
+				other = -other
+
+		self.pending_math.append([optext, op, other, reverse])
+
+	def isA(self, type):
+		return (
+			(
+				self.type is not any and
+				self.type is not Deferred.Raise and
+				issubclass(self.type, type)
+			)
+		)
 
 	__add__ = infix("+", operator.add)
 	__sub__ = infix("-", operator.sub)
@@ -214,16 +278,28 @@ class Deferred(object):
 		return Deferred(Lambda(self, "({})".format(f.__name__), lambda value: f(value)), tp)
 
 
+
 	@classmethod
 	def If(cls, cond, true, false):
 		cond = cls(cond)
 		true = cls(true)
 		false = cls(false)
 
+		ignore_true_type = true.type is Deferred.Raise
+		ignore_false_type = false.type is Deferred.Raise
+		if ignore_true_type:
+			res_type = false.type
+		elif ignore_false_type:
+			res_type = true.type
+		elif true.type is false.type:
+			res_type = true.type
+		else:
+			res_type = any
+
 		return cls(Lambda(
 			lambda context: true(context) if cond(context) else false(context),
 			lambda: "{!r} if {!r} else {!r}".format(true, cond, false)
-		), true.type if true.type is false.type else any)
+		), res_type)
 
 	@classmethod
 	def Repeat(cls, count, what):
@@ -231,19 +307,21 @@ class Deferred(object):
 		what = cls(what)
 
 		def f(context):
+			what1 = what(context)
+
 			result = []
 			for i in range(count(context)):
-				result.append(what(context))
+				result.append(what1)
 			return result
 
-		return cls(f, list)
+		return cls(Lambda(f, lambda: "[{!r}] * {!r}".format(what, count)), list)
 
 	@classmethod
 	def Raise(cls, err):
 		err = cls(err)
 		def cb():
 			raise err()
-		return cls(Lambda(cb, lambda: "raise {!r}".format(err)), any)
+		return cls(Lambda(cb, lambda: "raise {!r}".format(err)), Deferred.Raise)
 
 
 	@classmethod
