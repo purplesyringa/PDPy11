@@ -479,7 +479,7 @@ class Parser(object):
 				return value
 			else:
 				raise NotImplementedError(
-					"PY11 expression syntax is not implemented yet"
+					"PDPY11 expression syntax is not implemented yet"
 				)
 
 

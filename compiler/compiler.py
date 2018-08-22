@@ -11,7 +11,7 @@ class CompilerError(Exception):
 	pass
 
 class Compiler(object):
-	def __init__(self, syntax="py11", link=0o1000, file_list=[], project=None):
+	def __init__(self, syntax="pdpy11", link=0o1000, file_list=[], project=None):
 		self.syntax = syntax
 		self.link_address = link
 		self.file_list = file_list
@@ -100,7 +100,7 @@ class Compiler(object):
 			elif command == ".PDP11":
 				pass
 			elif command == ".I8080":
-				raise CompilerError("PY11 cannot compile 8080 programs")
+				raise CompilerError("PDPY11 cannot compile 8080 programs")
 			elif command == ".SYNTAX":
 				pass
 			elif command == ".BYTE":

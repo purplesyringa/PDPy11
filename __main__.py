@@ -5,20 +5,20 @@ from .compiler import Compiler
 from .compiler.util import encodeBinRaw
 
 if len(sys.argv) < 2:
-	print("PY11 Compiler")
+	print("PDPY11 Compiler")
 	print("(c) 2018 Ivanq")
 	print()
 	print("Usage:")
-	print("""py11 file.mac                   Compile file.mac to file.bin                    """)
-	print("""py11 file.mac --bin             Compile file.mac to file.bin, replaces          """)
+	print("""pdpy11 file.mac                 Compile file.mac to file.bin                    """)
+	print("""pdpy11 file.mac --bin           Compile file.mac to file.bin, replaces          """)
 	print("""                                make_raw / make_bk0010_rom                      """)
-	print("""py11 file.mac --raw             Compile file.mac to file, without bin header    """)
-	print("""py11 a b c                      Compile & link files a, b and c to a.bin        """)
-	print("""py11 a b c -o proj --raw        Compile & link files a, b and c to proj (w/o bin""")
+	print("""pdpy11 file.mac --raw           Compile file.mac to file, without bin header    """)
+	print("""pdpy11 a b c                    Compile & link files a, b and c to a.bin        """)
+	print("""pdpy11 a b c -o proj --raw      Compile & link files a, b and c to proj (w/o bin""")
 	print("""                                header)                                         """)
-	print("""py11 a b c -o proj              Compile & link files a, b and c to proj.bin (w/ """)
+	print("""pdpy11 a b c -o proj            Compile & link files a, b and c to proj.bin (w/ """)
 	print("""                                bin header)                                     """)
-	print("""py11 --project dir              Compile & link file dir/main.mac (see Project   """)
+	print("""pdpy11 --project dir            Compile & link file dir/main.mac (see Project   """)
 	print("""                                mode)                                           """)
 	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
@@ -26,7 +26,7 @@ if len(sys.argv) < 2:
 	print("""--syntax pdp11asm               (default) Use pdp11asm bugs/features: @M is same""")
 	print("""                                as @M(PC) (M is not resolved to M-.), make_raw  """)
 	print("""                                directive, .INCLUDE is same as .INCLUDE .END    """)
-	print("""--syntax py11                   Use PY11 features, fix pdp11asm bugs            """)
+	print("""--syntax pdpy11                 Use PDPY11 features, fix pdp11asm bugs          """)
 	print()
 	print("Directives:")
 	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). Ignored in  """)
@@ -36,11 +36,11 @@ if len(sys.argv) < 2:
 	print("""                                and link it from ".".                           """)
 	print("""                                In "pdp11asm" mode, .INCLUDE is same as .INCLUDE""")
 	print("""                                .END, and .RAW_INCLUDE is same as .INCLUDE.     """)
-	print("""                                In "py11" mode, they work the same way, only    """)
+	print("""                                In "pdpy11" mode, they work the same way, only  """)
 	print("""                                syntax differs.                                 """)
 	print(""".PDP11                          Ignored                                         """)
 	print(""".i8080                          Emits syntax error                              """)
-	print(""".SYNTAX {pdp11asm/py11}         Change syntax locally, for 1 file               """)
+	print(""".SYNTAX {pdp11asm/pdpy11}       Change syntax locally, for 1 file               """)
 	print(""".DB n / .BYTE n / DB n          Emits byte N                                    """)
 	print(""".DW n / .WORD n / DW n          Emits word N                                    """)
 	print(""".END / END                      Same as EOF                                     """)
@@ -66,11 +66,11 @@ if len(sys.argv) < 2:
 	print("Project mode")
 	print("""In project mode, most directives, such as ORG, .LINK, .LA, make_raw and         """)
 	print("""make_bk0010_rom are ignored, and only arguments from command line are used.     """)
-	print(""".py11ignore file is checked, and all files (and directories -- this file has    """)
+	print(""".pdpy11ignore file is checked, and all files (and directories -- this file has  """)
 	print("""syntax that's similar to .gitignore) are not compiled or linked.                """)
 	print("""The file to be compiled is main.mac -- it can include other files via .INCLUDE  """)
 	print("""or .RAW_INCLUDE. Moreover, these directives support passing directories now --  """)
-	print("""this includes all .mac files inside, not specified in .py11ignore.              """)
+	print("""this includes all .mac files inside, not specified in .pdpy11ignore.            """)
 
 	raise SystemExit(0)
 
@@ -112,8 +112,8 @@ if len(files) == 0 and project is None:
 elif len(files) != 0 and project is not None:
 	print("Either a project or file list may be passed, not both")
 	raise SystemExit(1)
-elif syntax not in ("pdp11asm", "py11"):
-	print("Invalid syntax (expected 'pdp11asm' or 'py11', got '{}')".format(syntax))
+elif syntax not in ("pdp11asm", "pdpy11"):
+	print("Invalid syntax (expected 'pdp11asm' or 'pdpy11', got '{}')".format(syntax))
 	raise SystemExit(1)
 
 if link[:2] in ("0x", "0X"):
@@ -153,10 +153,10 @@ file_list = []
 if project is not None:
 	files.append(os.path.join(project, "main.mac"))
 
-	# Get py11ignore
-	py11ignore = []
+	# Get pdpy11ignore
+	pdpy11ignore = []
 	try:
-		with open(os.path.join(project, ".py11ignore")) as f:
+		with open(os.path.join(project, ".pdpy11ignore")) as f:
 			for line in f.read().split("\n"):
 				# Replace directory separators
 				line = line.replace("/", os.sep)
@@ -175,7 +175,7 @@ if project is not None:
 				line = os.sep.join(line)
 
 				# Save
-				py11ignore.append((line, isRoot, isDir))
+				pdpy11ignore.append((line, isRoot, isDir))
 	except IOError:
 		pass
 
@@ -184,7 +184,7 @@ if project is not None:
 		for fileName in fileNames:
 			file = os.path.join(dirName, fileName)
 
-			for line, isRoot, isDir in py11ignore:
+			for line, isRoot, isDir in pdpy11ignore:
 				if file == line:
 					# Full match
 					if not isDir:
@@ -201,7 +201,7 @@ if project is not None:
 					if not isRoot:
 						break
 			else:
-				# No match -- not in py11ignore
+				# No match -- not in pdpy11ignore
 				if file.endswith(".mac"):
 					file_list.append(file)
 
