@@ -49,6 +49,9 @@ class Compiler(object):
 			return os.path.join(os.path.dirname(from_), file)
 
 	def link(self):
+		for label in self.labels:
+			Deferred(self.labels[label], int)(self)
+
 		array = []
 		for addr, value in self.writes:
 			value = Deferred(value, any)(self)
