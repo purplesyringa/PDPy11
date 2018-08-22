@@ -1,4 +1,5 @@
 from .deferred import Deferred
+from .util import octal
 
 
 class ExpressionEvaluateError(Exception):
@@ -6,7 +7,7 @@ class ExpressionEvaluateError(Exception):
 
 class Expression:
 	def __new__(cls, s):
-		return Deferred(cls.Get(s), any)
+		return Deferred(cls.Get(s), int)
 
 	class Get:
 		def __init__(self, s):
@@ -30,7 +31,10 @@ class Expression:
 				return Deferred(label, int)
 
 		def deferredRepr(self):
-			return "Expression({!r})".format(self.s)
+			if isinstance(self.s, int):
+				return "Expression({})".format(octal(self.s))
+			else:
+				return "Expression(@{})".format(self.s)
 
 	@staticmethod
 	def asOffset(expr):
