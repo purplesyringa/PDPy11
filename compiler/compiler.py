@@ -42,7 +42,6 @@ class Compiler(object):
 			self.compileFile(file, code)
 		except CompilerError as e:
 			print(e)
-			print("  at file", file)
 			raise SystemExit(1)
 
 	def resolve(self, from_, file):
@@ -172,6 +171,25 @@ class Compiler(object):
 				self.err(coords, "Redefinition of label {}".format(name))
 
 			self.labels[name] = value
+		elif command == ".REPEAT":
+			count, repeat_commands = arg
+			try:
+				count = count(self)
+			except ExpressionEvaluateError as e:
+				self.err(
+					coords,
+					"Error while evaluating .REPEAT count:\n" +
+					"(notice: count must be known at the time of its usage)\n" +
+					"\n" +
+					str(e)
+				)
+
+			for _ in range(count):
+				for (command, arg), labels in repeat_commands:
+					try:
+						self.handleCommand(parser, command, arg, labels)
+					except EOFError:
+						break
 		else:
 			# It's a simple command
 			if command in commands.zero_arg_commands:
@@ -318,6 +336,15 @@ class Compiler(object):
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
 		self.PC = self.PC + Deferred(bytes_, list).then(len, int)
+
+	def writeWords(self, words):
+		def wordsToBytes(words):
+			bytes_ = []
+			for word in words:
+				bytes_.append(word & 0xFF)
+				bytes_.append(word >> 8)
+			return bytes_
+		self.writeBytes(Deferred(words).then(wordsToBytes))
 
 
 	def encodeRegister(self, reg):

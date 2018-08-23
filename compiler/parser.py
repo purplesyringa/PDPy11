@@ -149,6 +149,9 @@ class Parser(object):
 					elif literal == "ASCIZ":
 						yield self.handleAscii(term="\x00"), labels
 						return
+					elif literal == "REPEAT":
+						yield self.handleRepeat(), labels
+						return
 					else:
 						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
 
@@ -291,6 +294,21 @@ class Parser(object):
 	def handleInsertFile(self):
 		with Transaction(self, maybe=False, stage=".INSERT_FILE"):
 			return ".INSERT_FILE", self.needString()
+
+	def handleRepeat(self):
+		with Transaction(self, maybe=False, stage=".REPEAT"):
+			count = self.needExpression()
+
+			self.needPunct("{")
+			commands = []
+			cmd_start = self.cmd_start
+			while True:
+				if self.needPunct("}", maybe=True):
+					self.cmd_start = cmd_start
+					return ".REPEAT", (count, commands)
+				else:
+					for cmd in self.parseCommand():
+						commands.append(cmd)
 
 	def handleCommand(self):
 		self.skipWhitespace()
