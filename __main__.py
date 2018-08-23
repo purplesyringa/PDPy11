@@ -27,6 +27,11 @@ if len(sys.argv) < 2:
 	print("""                                as @M(PC) (M is not resolved to M-.), make_raw  """)
 	print("""                                directive, .INCLUDE is same as .INCLUDE .END    """)
 	print("""--syntax pdpy11                 Use PDPY11 features, fix pdp11asm bugs          """)
+	print("""-Dname=value                    Set global label <name> to integer <value>      """)
+	print("""                                (parsed using assembler rules)                  """)
+	print("""-Dname="value" or               Set global label <name> to string <value>       """)
+	print("""-Dname='value' or                                                               """)
+	print("""-Dname=/value/                                                                  """)
 	print()
 	print("Directives:")
 	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). Ignored in  """)
@@ -84,6 +89,7 @@ output = None
 syntax = "pdp11asm"
 link = "1000"
 project = None
+defines = []
 
 args = sys.argv[1:]
 while len(args):
@@ -105,6 +111,23 @@ while len(args):
 		link = args.pop(0)
 	elif arg == "--syntax":
 		syntax = args.pop(0)
+	elif arg[:2] == "-D":
+		name, value = arg[2:].split("=", 1)
+		str_punct = ("\"", "'", "/")
+		if value == "":
+			pass
+		elif value[0] == value[-1] and value[0] in str_punct:
+			# String
+			defines.append((name, value[1:-1]))
+		else:
+			# Integer
+			if value[:2] in ("0x", "0X"):
+				value = int(value[2:], 16)
+			elif value[-1] == ".":
+				value = int(value[:-1], 10)
+			else:
+				value = int(value, 8)
+			defines.append((name, value))
 	else:
 		files.append(arg)
 
@@ -120,11 +143,7 @@ elif syntax not in ("pdp11asm", "pdpy11"):
 
 if link[:2] in ("0x", "0X"):
 	link = int(link[2:], 16)
-elif link[:2] in ("0d", "0D"):
-	link = int(link[2:], 10)
-elif link[-1] in ("h", "H"):
-	link = int(link[:-1], 16)
-elif link[-1] in ("d", "D", "."):
+elif link[-1] == ".":
 	link = int(link[:-1], 10)
 else:
 	link = int(link, 8)
@@ -209,6 +228,8 @@ if project is not None:
 
 
 compiler = Compiler(syntax=syntax, link=link, file_list=file_list, project=project)
+for name, value in defines:
+	compiler.define(name, value)
 for file in files:
 	compiler.addFile(file)
 

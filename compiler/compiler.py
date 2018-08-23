@@ -21,6 +21,19 @@ class Compiler(object):
 		self.build = []
 		self.writes = []
 
+	def define(self, name, value):
+		value_text = "\"{}\"".format(value) if isinstance(value, str) else value
+
+		if name.upper() in self.labels:
+			self.err({
+				"file": "CLI",
+				"line": 1,
+				"column": 1,
+				"text": "-D{}={}".format(name, value_text)
+			}, "Redefinition of label {}".format(name))
+
+		self.labels[name.upper()] = value
+
 	def addFile(self, file, relative_to=None):
 		if relative_to is None:
 			relative_to = os.getcwd()
