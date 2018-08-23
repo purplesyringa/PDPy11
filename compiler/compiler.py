@@ -75,7 +75,7 @@ class Compiler(object):
 			self.link_address = Deferred(self.link_address, int)(self)
 			self.output = array[self.link_address:]
 			return self.build
-		except ExpressionEvaluateError as e:
+		except (ExpressionEvaluateError, CompilerError) as e:
 			print(e)
 			raise SystemExit(1)
 
@@ -83,183 +83,198 @@ class Compiler(object):
 		parser = Parser(file, code, syntax=self.syntax)
 
 		for (command, arg), labels in parser.parse():
-			for label in labels:
-				if label in self.labels:
-					raise CompilerError("Redefinition of label {}".format(label))
-
-				self.labels[label] = self.PC
-
-			if command is None:
-				continue
-			elif command == ".LINK":
-				self.PC = arg
-				if self.project is None:
-					self.link_address = arg
-			elif command == ".INCLUDE":
-				self.include(arg, file)
-			elif command == ".PDP11":
-				pass
-			elif command == ".I8080":
-				raise CompilerError("PDPY11 cannot compile 8080 programs")
-			elif command == ".SYNTAX":
-				pass
-			elif command == ".BYTE":
-				for byte in arg:
-					self.writeByte(byte)
-			elif command == ".WORD":
-				for word in arg:
-					self.writeWord(word)
-			elif command == ".END":
+			try:
+				self.handleCommand(parser, command, arg, labels)
+			except EOFError:
 				break
-			elif command == ".BLKB":
-				bytes_ = Deferred.Repeat(arg, 0)
-				self.writeBytes(bytes_)
-			elif command == ".BLKW":
-				words = Deferred.Repeat(arg * 2, 0)
-				self.writeBytes(words)
-			elif command == ".EVEN":
-				self.writeBytes(
-					Deferred.If(
-						self.PC % 2 == 0,
-						[],
-						[0]
+
+
+	def handleCommand(self, parser, command, arg, labels):
+		coords = parser.getCurrentCommandCoords()
+
+		for label in labels:
+			if label in self.labels:
+				self.err(coords, "Redefinition of label {}".format(label))
+
+			self.labels[label] = self.PC
+
+		if command is None:
+			return
+		elif command == ".LINK":
+			self.PC = arg
+			if self.project is None:
+				self.link_address = arg
+		elif command == ".INCLUDE":
+			self.include(arg, parser.file)
+		elif command == ".PDP11":
+			pass
+		elif command == ".I8080":
+			self.err(coords, "PDPY11 cannot compile 8080 programs")
+		elif command == ".SYNTAX":
+			pass
+		elif command == ".BYTE":
+			for byte in arg:
+				self.writeByte(byte, coords)
+		elif command == ".WORD":
+			for word in arg:
+				self.writeWord(word, coords)
+		elif command == ".END":
+			raise EOFError()
+		elif command == ".BLKB":
+			bytes_ = Deferred.Repeat(arg, 0)
+			self.writeBytes(bytes_)
+		elif command == ".BLKW":
+			words = Deferred.Repeat(arg * 2, 0)
+			self.writeBytes(words)
+		elif command == ".EVEN":
+			self.writeBytes(
+				Deferred.If(
+					self.PC % 2 == 0,
+					[],
+					[0]
+				)
+			)
+		elif command == ".ALIGN":
+			self.writeBytes(
+				Deferred.If(
+					self.PC % arg == 0,
+					[],
+					Deferred.Repeat(
+						arg - self.PC % arg,
+						0
 					)
 				)
-			elif command == ".ALIGN":
-				self.writeBytes(
-					Deferred.If(
-						self.PC % arg == 0,
-						[],
-						Deferred.Repeat(
-							arg - self.PC % arg,
-							0
-						)
-					)
-				)
-			elif command == ".ASCII":
-				self.writeBytes(
-					Deferred(arg, str)
-						.then(lambda string: [ord(char) for char in string], list)
-				)
-			elif command == ".MAKE_RAW":
-				self.build.append(("raw", arg))
-			elif command == ".MAKE_BIN":
-				self.build.append(("bin", arg))
-			elif command == ".CONVERT1251TOKOI8R":
-				pass
-			elif command == ".DECIMALNUMBERS":
-				pass
-			elif command == ".INSERT_FILE":
-				with open(self.resolve(file, arg), "rb") as f:
-					if sys.version_info[0] == 2:
-						# Python 2
-						self.writeBytes([ord(char) for char in f.read()])
-					else:
-						# Python 3
-						self.writeBytes([char for char in f.read()])
-			elif command == ".EQU":
-				name, value = arg
-				if name in self.labels:
-					raise CompilerError("Redefinition of label {}".format(name))
-
-				self.labels[name] = value
-			else:
-				# It's a simple command
-				if command in commands.zero_arg_commands:
-					self.writeWord(commands.zero_arg_commands[command])
-				elif command in commands.one_arg_commands:
-					self.writeWord(
-						commands.one_arg_commands[command] |
-						self.encodeArg(arg[0])
-					)
-				elif command in commands.jmp_commands:
-					offset = arg[0] - self.PC - 2
-					offset = (Deferred(offset, int)
-						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Unaligned branch: {} bytes".format(util.octal(offset))))
-							if offset % 2 == 1
-							else offset // 2
-						), int)
-						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Too far branch: {} words".format(util.octal(offset))))
-							if offset < -128 or offset > 127
-							else offset
-						), int)
-					)
-
-					self.writeWord(
-						commands.jmp_commands[command] |
-						util.int8ToUint8(offset)
-					)
-				elif command in commands.imm_arg_commands:
-					max_imm_value = commands.imm_arg_commands[command][1]
-
-					value = (Deferred(arg[0], int)
-						.then(lambda value: (
-							Deferred.Raise(CompilerError("Too big immediate value: {}".format(util.octal(value))))
-							if value > max_imm_value
-							else value
-						), int)
-						.then(lambda value: (
-							Deferred.Raise(CompilerError("Negative immediate value: {}".format(util.octal(value))))
-							if value < 0
-							else value
-						), int)
-					)
-
-					self.writeWord(commands.imm_arg_commands[command][0] | (value // 2))
-				elif command in commands.two_arg_commands:
-					self.writeWord(
-						commands.two_arg_commands[command] |
-						(self.encodeArg(arg[0]) << 6) |
-						self.encodeArg(arg[1])
-					)
-				elif command in commands.reg_commands:
-					self.writeWord(
-						commands.reg_commands[command] |
-						(self.encodeRegister(arg[0]) << 6) |
-						self.encodeArg(arg[1])
-					)
-				elif command == "RTS":
-					self.writeWord(
-						0o000200 | self.encodeRegister(arg[0])
-					)
-				elif command == "SOB":
-					offset = self.PC + 2 - arg[1]
-					offset = (Deferred(offset, int)
-						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Unaligned SOB: {} bytes".format(util.octal(offset))))
-							if offset % 2 == 1
-							else offset // 2
-						), int)
-						.then(lambda offset: (
-							Deferred.Raise(CompilerError("Too far SOB: {} words".format(util.octal(offset))))
-							if offset < 0 or offset > 63
-							else offset
-						), int)
-					)
-
-					self.writeWord(
-						0o077000 |
-						(self.encodeRegister(arg[0]) << 6) |
-						offset
-					)
+			)
+		elif command == ".ASCII":
+			self.writeBytes(
+				Deferred(arg, str)
+					.then(lambda string: [ord(char) for char in string], list)
+			)
+		elif command == ".MAKE_RAW":
+			self.build.append(("raw", arg))
+		elif command == ".MAKE_BIN":
+			self.build.append(("bin", arg))
+		elif command == ".CONVERT1251TOKOI8R":
+			pass
+		elif command == ".DECIMALNUMBERS":
+			pass
+		elif command == ".INSERT_FILE":
+			with open(self.resolve(parser.file, arg), "rb") as f:
+				if sys.version_info[0] == 2:
+					# Python 2
+					self.writeBytes([ord(char) for char in f.read()])
 				else:
-					raise CompilerError("Unknown command {}".format(command))
+					# Python 3
+					self.writeBytes([char for char in f.read()])
+		elif command == ".EQU":
+			name, value = arg
+			if name in self.labels:
+				self.err(coords, "Redefinition of label {}".format(name))
 
-				for arg1 in arg:
-					if isinstance(arg1, tuple):
-						_, additional = arg1
-					elif isinstance(arg1, (int, Expression)):
-						additional = arg1
-					else:
-						additional = None
+			self.labels[name] = value
+		else:
+			# It's a simple command
+			if command in commands.zero_arg_commands:
+				self.writeWord(commands.zero_arg_commands[command], coords)
+			elif command in commands.one_arg_commands:
+				self.writeWord(
+					commands.one_arg_commands[command] |
+					self.encodeArg(arg[0]),
+					coords
+				)
+			elif command in commands.jmp_commands:
+				offset = arg[0] - self.PC - 2
+				offset = (Deferred(offset, int)
+					.then(lambda offset: (
+						self.err(coords, "Unaligned branch: {} bytes".format(util.octal(offset)))
+						if offset % 2 == 1
+						else offset // 2
+					), int)
+					.then(lambda offset: (
+						self.err(coords, "Too far branch: {} words".format(util.octal(offset)))
+						if offset < -128 or offset > 127
+						else offset
+					), int)
+				)
 
-					if additional is not None:
-						if getattr(additional, "isOffset", False):
-							additional = additional - self.PC - 2
+				self.writeWord(
+					commands.jmp_commands[command] |
+					util.int8ToUint8(offset),
+					coords
+				)
+			elif command in commands.imm_arg_commands:
+				max_imm_value = commands.imm_arg_commands[command][1]
 
-						self.writeWord(additional)
+				value = (Deferred(arg[0], int)
+					.then(lambda value: (
+						self.err(coords, "Too big immediate value: {}".format(util.octal(value)))
+						if value > max_imm_value
+						else value
+					), int)
+					.then(lambda value: (
+						self.err(coords, "Negative immediate value: {}".format(util.octal(value)))
+						if value < 0
+						else value
+					), int)
+				)
+
+				self.writeWord(commands.imm_arg_commands[command][0] | (value // 2), coords)
+			elif command in commands.two_arg_commands:
+				self.writeWord(
+					commands.two_arg_commands[command] |
+					(self.encodeArg(arg[0]) << 6) |
+					self.encodeArg(arg[1]),
+					coords
+				)
+			elif command in commands.reg_commands:
+				self.writeWord(
+					commands.reg_commands[command] |
+					(self.encodeRegister(arg[0]) << 6) |
+					self.encodeArg(arg[1]),
+					coords
+				)
+			elif command == "RTS":
+				self.writeWord(
+					0o000200 | self.encodeRegister(arg[0]),
+					coords
+				)
+			elif command == "SOB":
+				offset = self.PC + 2 - arg[1]
+				offset = (Deferred(offset, int)
+					.then(lambda offset: (
+						self.err(coords, "Unaligned SOB: {} bytes".format(util.octal(offset)))
+						if offset % 2 == 1
+						else offset // 2
+					), int)
+					.then(lambda offset: (
+						self.err(coords, "Too far SOB: {} words".format(util.octal(offset)))
+						if offset < 0 or offset > 63
+						else offset
+					), int)
+				)
+
+				self.writeWord(
+					0o077000 |
+					(self.encodeRegister(arg[0]) << 6) |
+					offset,
+					coords
+				)
+			else:
+				self.err(coords, "Unknown command {}".format(command))
+
+			for arg1 in arg:
+				if isinstance(arg1, tuple):
+					_, additional = arg1
+				elif isinstance(arg1, (int, Expression)):
+					additional = arg1
+				else:
+					additional = None
+
+				if additional is not None:
+					if getattr(additional, "isOffset", False):
+						additional = additional - self.PC - 2
+
+					self.writeWord(additional, coords)
 
 
 	def include(self, path, file):
@@ -267,14 +282,14 @@ class Compiler(object):
 
 
 
-	def writeByte(self, byte):
+	def writeByte(self, byte, coords=None):
 		byte = (Deferred(byte, int)
 			.then(lambda byte: (
-				Deferred.Raise(CompilerError("Byte {} is too big".format(util.octal(byte))))
+				self.err(coords, "Byte {} is too big".format(util.octal(byte)))
 				if byte >= 256 else byte
 			), int)
 			.then(lambda byte: (
-				Deferred.Raise(CompilerError("Byte {} is too small".format(util.octal(byte))))
+				self.err(coords, "Byte {} is too small".format(util.octal(byte)))
 				if byte < -256 else byte
 			), int)
 			.then(lambda byte: byte + 256 if byte < 0 else byte, int)
@@ -283,14 +298,14 @@ class Compiler(object):
 		self.writes.append((self.PC, byte))
 		self.PC = self.PC + 1
 
-	def writeWord(self, word):
+	def writeWord(self, word, coords=None):
 		word = (Deferred(word, int)
 			.then(lambda word: (
-				Deferred.Raise(CompilerError("Word {} is too big".format(util.octal(word))))
+				self.err(coords, "Word {} is too big".format(util.octal(word)))
 				if word >= 65536 else word
 			), int)
 			.then(lambda word: (
-				Deferred.Raise(CompilerError("Word {} is too small".format(util.octal(word))))
+				self.err(coords, "Word {} is too small".format(util.octal(word)))
 				if word < -65536 else word
 			), int)
 			.then(lambda word: word + 65536 if word < 0 else word, int)
@@ -318,3 +333,14 @@ class Compiler(object):
 	def encodeArg(self, arg):
 		(reg, addr), _ = arg
 		return (self.encodeAddr(addr) << 3) | self.encodeRegister(reg)
+
+
+	def err(self, coords, text):
+		raise CompilerError(
+			"{}\n  at file {file} (line {line}, column {column})\n\n{text}".format(
+				text,
+				file=coords["file"],
+				line=coords["line"], column=coords["column"],
+				text=coords["text"]
+			)
+		)

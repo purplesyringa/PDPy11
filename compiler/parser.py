@@ -59,6 +59,9 @@ class Parser(object):
 
 		self.current_labels = labels
 
+		self.skipWhitespace()
+		self.cmd_start = self.pos
+
 		with Transaction(self, maybe=False, stage="command") as t:
 			pos = self.pos
 			literal = self.needLiteral(maybe=True)
@@ -809,6 +812,23 @@ class Parser(object):
 						self.pos += 1
 		except IndexError:
 			raise InvalidError("Got EOF")
+
+
+	def getCurrentCommandCoords(self):
+		# Position to line/col
+		line = len(self.code[:self.cmd_start].split("\n"))
+		try:
+			last_lf = self.code[:self.cmd_start].rindex("\n")
+		except ValueError:
+			last_lf = 0
+		col = self.cmd_start - last_lf
+
+		return {
+			"file": self.file,
+			"line": line,
+			"column": col,
+			"text": self.code[self.cmd_start:self.pos].strip()
+		}
 
 
 class Transaction(object):
