@@ -5,7 +5,7 @@ from .compiler import Compiler
 from .compiler.util import encodeBinRaw
 
 if len(sys.argv) < 2:
-	print("PDPY11 Compiler")
+	print("PDPy11 Compiler")
 	print("(c) 2018 Ivanq")
 	print()
 	print("Usage:")
@@ -26,7 +26,7 @@ if len(sys.argv) < 2:
 	print("""--syntax pdp11asm               (default) Use pdp11asm bugs/features: @M is same""")
 	print("""                                as @M(PC) (M is not resolved to M-.), make_raw  """)
 	print("""                                directive, .INCLUDE is same as .INCLUDE .END    """)
-	print("""--syntax pdpy11                 Use PDPY11 features, fix pdp11asm bugs          """)
+	print("""--syntax pdpy11                 Use PDPy11 features, fix pdp11asm bugs          """)
 	print("""-Dname=value                    Set global label <name> to integer <value>      """)
 	print("""                                (parsed using assembler rules)                  """)
 	print("""-Dname="value" or               Set global label <name> to string <value>       """)
@@ -58,11 +58,9 @@ if len(sys.argv) < 2:
 	print(""".ASCII "..."                    Emits string                                    """)
 	print(""".ASCIZ "..."                    Emits string, plus zero byte                    """)
 	print("""make_raw ["..."]                Same as --raw. If string is passed, this is the """)
-	print("""                                resulting filename. However, if -o is passed,   """)
-	print("""                                filename is ignored. Ignored in project mode.   """)
+	print("""                                resulting filename.                             """)
 	print("""make_bk0010_rom ["..."]         Same as --bin. If string is passed, this is the """)
-	print("""                                resulting filename. However, if -o is passed,   """)
-	print("""                                filename is ignored. Ignored in project mode.   """)
+	print("""                                resulting filename.                             """)
 	print("""convert1251toKOI8R {ON|OFF}     Ignored                                         """)
 	print("""decimalnumbers {ON|OFF}         If ON, N is the same as N., and you must use    """)
 	print("""                                0oN or 0N or No for octal. This does not affect """)
@@ -71,10 +69,10 @@ if len(sys.argv) < 2:
 	print(""".REPEAT count { code }          Repeat code inside .REPEAT block <count> times  """)
 	print()
 	print("Project mode")
-	print("""In project mode, most directives, such as ORG, .LINK, .LA, make_raw and         """)
-	print("""make_bk0010_rom are ignored, and only arguments from command line are used.     """)
-	print(""".pdpy11ignore file is checked, and all files (and directories -- this file has  """)
-	print("""syntax that's similar to .gitignore) are not compiled or linked.                """)
+	print("""In project mode, most directives, such as ORG, .LINK and .LA are ignored, and   """)
+	print("""only arguments from command line are used. .pdpy11ignore file is checked, and   """)
+	print("""all files (and directories -- this file has syntax that's similar to .gitignore)""")
+	print("""are not compiled or linked.                                                     """)
 	print("""The file to be compiled is main.mac -- it can include other files via .INCLUDE  """)
 	print("""or .RAW_INCLUDE. Moreover, these directives support passing directories now --  """)
 	print("""this includes all .mac files inside, not specified in .pdpy11ignore.            """)
@@ -83,7 +81,7 @@ if len(sys.argv) < 2:
 
 
 # Parse CLI arguments
-isBin = True
+isBin = None
 files = []
 output = None
 syntax = "pdp11asm"
@@ -155,7 +153,7 @@ if output is None:
 		output_noext = output
 
 		# Add extension
-		if isBin:
+		if isBin is None or isBin:
 			output += ".bin"
 		else:
 			output += ".raw"
@@ -166,7 +164,7 @@ if output is None:
 		output_noext = output
 
 		# Add extension
-		if isBin:
+		if isBin is None or isBin:
 			output += ".bin"
 
 file_list = []
@@ -247,12 +245,12 @@ if project is None:
 		with open(file, "wb") as f:
 			f.write(encodeBinRaw(ext == "bin", compiler))
 
-if len(out_files) == 0 or project is not None:
+if len(out_files) == 0 or isBin is None or project is not None:
 	# Project mode / no out file
 	output_stream = open(output, "wb")
 	if sys.version_info[0] == 2:
 		# Python 2
-		output_stream.write(encodeBinRaw(isBin, compiler))
+		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
 	else:
 		# Python 3
-		output_stream.write(encodeBinRaw(isBin, compiler))
+		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
