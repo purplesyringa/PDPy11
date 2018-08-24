@@ -22,6 +22,7 @@ class Compiler(object):
 		self.all_build = []
 		self.build = []
 		self.writes = []
+		self.extern_labels = False
 
 	def define(self, name, value):
 		value_text = "\"{}\"".format(value) if isinstance(value, str) else value
@@ -160,21 +161,23 @@ class Compiler(object):
 	def compileFile(self, file, code):
 		parser = Parser(file, code, syntax=self.syntax)
 
-		for (command, arg), labels in parser.parse():
-			try:
-				self.handleCommand(parser, command, arg, labels)
-			except EOFError:
-				break
+		extern_labels = self.extern_labels
+		self.extern_labels = False # .EXTERN NONE
+		try:
+			for (command, arg), labels in parser.parse():
+				try:
+					self.handleCommand(parser, command, arg, labels)
+				except EOFError:
+					break
+		finally:
+			self.extern_labels = extern_labels
 
 
 	def handleCommand(self, parser, command, arg, labels):
 		coords = parser.getCurrentCommandCoords()
 
 		for label in labels:
-			if label in self.labels:
-				self.err(coords, "Redefinition of label {}".format(label))
-
-			self.labels[label] = self.linkPC
+			self.defineLabel(parser.file, label, self.linkPC, coords)
 
 		if command is None:
 			return
@@ -266,10 +269,7 @@ class Compiler(object):
 					self.writeBytes([char for char in f.read()])
 		elif command == ".EQU":
 			name, value = arg
-			if name in self.labels:
-				self.err(coords, "Redefinition of label {}".format(name))
-
-			self.labels[name] = value
+			self.defineLabel(parser.file, name, value, coords)
 		elif command == ".REPEAT":
 			count, repeat_commands = arg
 			try:
@@ -289,6 +289,31 @@ class Compiler(object):
 						self.handleCommand(parser, command, arg, labels)
 					except EOFError:
 						break
+		elif command == ".EXTERN":
+			is_all = False
+			is_none = False
+			label_list = []
+			for part in arg:
+				if part == "ALL":
+					is_all = True
+				elif part == "NONE":
+					is_none = True
+				else:
+					label_list.append(part)
+
+			if is_all and is_none:
+				self.err(coords, ".EXTERN ALL and .EXTERN NONE cannot be used together")
+			elif is_all and len(label_list) > 0:
+				self.err(coords, ".EXTERN ALL and .EXTERN LABEL cannot be used together")
+			elif is_none and len(label_list) > 0:
+				self.err(coords, ".EXTERN NONE and .EXTERN LABEL cannot be used together")
+
+			if is_all:
+				self.extern_labels = True
+			elif is_none:
+				self.extern_labels = False
+			else:
+				self.extern_labels = label_list
 		else:
 			# It's a simple command
 			if command in commands.zero_arg_commands:
@@ -483,3 +508,46 @@ class Compiler(object):
 		else:
 			# Relative
 			return os.path.join(relative_to, file)
+
+	def defineLabel(self, file_id, name, value, coords):
+		extern = False
+		if self.extern_labels is True:
+			# .EXTERN ALL
+			extern = True
+		elif self.extern_labels is False:
+			# .EXTERN NONE
+			extern = False
+		else:
+			extern = name in self.extern_labels
+
+		if extern:
+			# Check that there is no file where such local label is
+			# defined.
+			for label in self.labels:
+				if label.endswith(":{}".format(name)):
+					self.err(
+						coords,
+						("Redefinition of global label {} with local " +
+						"label defined in {}").format(name, label.rsplit(":", 1)[0])
+					)
+
+			# Check that there is no file where such global label is
+			# defined.
+			if name in self.labels:
+				self.err(
+					coords,
+					"Redefinition of global label {}".format(name)
+				)
+
+			self.labels[name] = value
+		else:
+			# Check that there is no file where such global label is
+			# defined.
+			if name in self.labels:
+				self.err(
+					coords,
+					("Redefinition of global label {} with local " +
+					"label defined in {}").format(name, file_id)
+				)
+
+			self.labels["{}:{}".format(file_id, name)] = value

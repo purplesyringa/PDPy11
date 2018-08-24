@@ -6,12 +6,13 @@ class ExpressionEvaluateError(Exception):
 	pass
 
 class Expression(object):
-	def __new__(cls, s):
-		return Deferred(cls.Get(s), int)
+	def __new__(cls, s, file_id):
+		return Deferred(cls.Get(s, file_id), int)
 
 	class Get(object):
-		def __init__(self, s):
+		def __init__(self, s, file_id):
 			self.s = s
+			self.file_id = file_id
 
 		def __call__(self, compiler):
 			if isinstance(self.s, int):
@@ -19,11 +20,15 @@ class Expression(object):
 				return self.s
 			else:
 				# Label
-				def label():
+				def label():	
 					try:
 						return compiler.labels[self.s]
 					except KeyError:
-						raise ExpressionEvaluateError("Label '{}' not found".format(self.s))
+						try:
+							global_s = "{}:{}".format(self.file_id, self.s)
+							return compiler.labels[global_s]
+						except KeyError:
+							raise ExpressionEvaluateError("Label '{}' not found".format(self.s))
 
 				return Deferred(label, int)
 

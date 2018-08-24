@@ -154,6 +154,9 @@ class Parser(object):
 					elif literal == "REPEAT":
 						yield self.handleRepeat(), labels
 						return
+					elif literal == "EXTERN":
+						yield self.handleExtern(), labels
+						return
 					else:
 						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
 
@@ -203,7 +206,7 @@ class Parser(object):
 		label = ".{}".format(Parser.last_mark)
 		self.current_labels.append(label)
 		Parser.last_mark += 1
-		return Expression(label)
+		return Expression(label, self.file)
 
 
 
@@ -312,6 +315,14 @@ class Parser(object):
 					for cmd in self.parseCommand():
 						commands.append(cmd)
 
+	def handleExtern(self):
+		with Transaction(self, maybe=False, stage=".EXTERN"):
+			extern = [self.needLiteral()]
+			while self.needPunct(",", maybe=True):
+				extern.append(self.needLiteral())
+
+			return ".EXTERN", extern
+
 	def handleCommand(self):
 		self.skipWhitespace()
 
@@ -398,7 +409,7 @@ class Parser(object):
 						return (reg, "@(Rn)+"), None
 					else:
 						# @0(Rn)
-						return (reg, "@N(Rn)"), Expression(0)
+						return (reg, "@N(Rn)"), Expression(0, self.file)
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
 					t.noRollback()
@@ -518,7 +529,7 @@ class Parser(object):
 						"#'string': expected 1 or 2 chars, got 0"
 					)
 				elif len(string) == 1:
-					return Expression(ord(string[0]))
+					return Expression(ord(string[0]), self.file)
 				elif len(string) == 2:
 					a = ord(string[0])
 					b = ord(string[1])
@@ -527,7 +538,7 @@ class Parser(object):
 							"Cannot fit two UTF characters in 1 word: " +
 							"'{}'".format(string)
 						)
-					return Expression(a | (b << 8))
+					return Expression(a | (b << 8), self.file)
 				else:
 					raise InvalidError(
 						"Cannot fit {} characters in 1 word: '{}'".format(
@@ -540,9 +551,9 @@ class Parser(object):
 			if integer is not None:
 				# Label?
 				if isLabel:
-					return Expression("{}@{}".format(self.last_label, integer))
+					return Expression("{}@{}".format(self.last_label, integer), self.file)
 				else:
-					return Expression(integer)
+					return Expression(integer, self.file)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
@@ -552,7 +563,7 @@ class Parser(object):
 			label = self.needLiteral(maybe=True)
 			if label is None:
 				raise InvalidError("Expected integer, string, . (dot) or label")
-			return Expression(label)
+			return Expression(label, self.file)
 
 
 
