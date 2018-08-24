@@ -88,6 +88,33 @@ A:  .WORD 0
 
 If the program is loaded and executed from `1000`, `A` will be equal to `1006`, and if it's loaded from `2000`, `A` will still be equal to `1006`, because the `.LINK` address was not changed to `2000`.
 
+If a file containing `.LINK` (or `ORG` / `.LA`) is included, `.` is not changed, but the file is linked like a separate file from `addr`.
+
+Example:
+
+**main.mac**
+
+```
+.LINK 1000
+.WORD 1
+.WORD 2
+.WORD 3
+.INCLUDE "inc.mac"
+```
+
+**inc.mac**
+
+```
+.LINK 2000
+A: .WORD A
+```
+
+**Output:** (`.bin` from 1000)
+
+```
+000001 000002 000003 002000
+```
+
 #### `.INCLUDE /filename/` / `.RAW_INCLUDE filename`
 
 In `pdpy11` mode, the commands work the same way. In `pdp11asm` compatibility mode, `.INCLUDE` works like `.INCLUDE + .END`, and `.RAW_INCLUDE` works correctly.
@@ -200,6 +227,68 @@ Include `filename` directly to output.
 #### `.REPEAT count { commands }`
 
 Repeat `commands` exactly `count` times.
+
+#### `.EXTERN NONE` / `.EXTERN ALL` / `.EXTERN label[, ...]`
+
+Default: `NONE`;
+
+Sets what labels are visible in other files.
+
+`NONE` means that any labels inside current file are visible in current file only, and they can be registered in other files.
+
+Example:
+
+**a.mac**
+
+```
+.EXTERN NONE
+VAR = 1
+.WORD VAR
+.INCLUDE "b.mac"
+.WORD VAR
+```
+
+**b.mac**
+
+```
+.EXTERN NONE
+VAR = 2
+.WORD VAR
+```
+
+**Output:**
+
+```
+000001 000002 000001
+```
+
+`ALL` is the same as mentioning all the labels defined in current file.
+
+Example:
+
+**a.mac**
+
+```
+.EXTERN LABEL_A
+LABEL_A = 1
+LABEL_B = 2
+.WORD LABEL_A, LABEL_B
+.INCLUDE "b.mac"
+.WORD LABEL_A, LABEL_B
+```
+
+**b.mac**
+
+```
+LABEL_B = 3
+.WORD LABEL_A, LABEL_B
+```
+
+**Output:**
+
+```
+000001 000002 000001 000003 000001 000002
+```
 
 
 ### Project mode
