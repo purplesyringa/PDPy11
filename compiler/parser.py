@@ -14,6 +14,8 @@ class InvalidError(Exception):
 	pass
 
 class Parser(object):
+	last_mark = 0
+
 	def __init__(self, file, code, syntax):
 		self.code = code
 		self.pos = 0
@@ -21,7 +23,6 @@ class Parser(object):
 		self.decimal = False
 		self.syntax = syntax
 		self.last_label = ""
-		self.last_mark = 0
 		self.stage_stack = []
 		self.last_error_stages = []
 
@@ -113,6 +114,7 @@ class Parser(object):
 						yield self.handleInclude(), labels
 						if self.syntax == "pdp11asm":
 							raise EndOfParsingError()
+						return
 					elif literal == "RAW_INCLUDE":
 						yield self.handleInclude(raw=True), labels
 						return
@@ -198,9 +200,9 @@ class Parser(object):
 			yield self.handleCommand(), labels
 
 	def mark(self):
-		label = ".{}".format(self.last_mark)
+		label = ".{}".format(Parser.last_mark)
 		self.current_labels.append(label)
-		self.last_mark += 1
+		Parser.last_mark += 1
 		return Expression(label)
 
 

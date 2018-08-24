@@ -35,7 +35,9 @@ if len(sys.argv) < 2:
 	print()
 	print("Directives:")
 	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). Ignored in  """)
-	print("""                                project mode.                                   """)
+	print("""                                project mode. However, if an included file      """)
+	print("""                                contains .LINK, the included file will be linked""")
+	print("""                                from N, but included from ".".                  """)
 	print(""".INCLUDE "filename" /           Compile file "filename", then return to current """)
 	print(""".RAW_INCLUDE filename           file. Embed "filename" to current binary file,  """)
 	print("""                                and link it from ".".                           """)
@@ -69,13 +71,11 @@ if len(sys.argv) < 2:
 	print(""".REPEAT count { code }          Repeat code inside .REPEAT block <count> times  """)
 	print()
 	print("Project mode")
-	print("""In project mode, most directives, such as ORG, .LINK and .LA are ignored, and   """)
-	print("""only arguments from command line are used. .pdpy11ignore file is checked, and   """)
-	print("""all files (and directories -- this file has syntax that's similar to .gitignore)""")
-	print("""are not compiled or linked.                                                     """)
-	print("""The file to be compiled is main.mac -- it can include other files via .INCLUDE  """)
-	print("""or .RAW_INCLUDE. Moreover, these directives support passing directories now --  """)
-	print("""this includes all .mac files inside, not specified in .pdpy11ignore.            """)
+	print("""In project mode, all files mentioned in .pdpy11ignore file (and directories --  """)
+	print("""this file has syntax that's similar to .gitignore) are not compiled or linked.  """)
+	print("""All files that aren't included to other files (i.e. include roots) are built.   """)
+	print("""-o option is ignored, as well as --raw, --bin and --link. Only make_raw and     """)
+	print("""make_bk0010_rom (the latter being the default) are checked.                     """)
 
 	raise SystemExit(0)
 
@@ -170,8 +170,6 @@ if output is None:
 file_list = []
 
 if project is not None:
-	files.append(os.path.join(project, "main.mac"))
-
 	# Get pdpy11ignore
 	pdpy11ignore = []
 	try:
@@ -228,29 +226,29 @@ if project is not None:
 compiler = Compiler(syntax=syntax, link=link, file_list=file_list, project=project)
 for name, value in defines:
 	compiler.define(name, value)
-for file in files:
-	compiler.addFile(file)
 
-out_files = compiler.link()
-
-if project is None:
-	# Single file mode
-	for ext, file in out_files:
-		if file is None:
-			if ext != "raw":
-				file = output_noext + "." + ext
-			else:
-				file = output_noext
-
+if project is not None:
+	# Project mode
+	for ext, file, output, link_address in compiler.buildProject():
 		with open(file, "wb") as f:
-			f.write(encodeBinRaw(ext == "bin", compiler))
+			f.write(encodeBinRaw(ext == "bin", output, link_address))
+else:
+	# Single file mode
+	for file in files:
+		compiler.addFile(file)
 
-if len(out_files) == 0 or isBin is None or project is not None:
-	# Project mode / no out file
-	output_stream = open(output, "wb")
-	if sys.version_info[0] == 2:
-		# Python 2
-		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
-	else:
-		# Python 3
-		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
+	out_files = compiler.link()
+
+	for ext, file in out_files:
+		with open(file, "wb") as f:
+			f.write(encodeBinRaw(ext == "bin", compiler.output, compiler.link_address))
+
+	if len(out_files) == 0 or isBin is None:
+		# No output file
+		output_stream = open(output, "wb")
+		if sys.version_info[0] == 2:
+			# Python 2
+			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
+		else:
+			# Python 3
+			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))

@@ -18,6 +18,8 @@ class Compiler(object):
 		self.project = project
 		self.labels = {}
 		self.PC = link
+		self.linkPC = link
+		self.all_build = []
 		self.build = []
 		self.writes = []
 
@@ -34,19 +36,62 @@ class Compiler(object):
 
 		self.labels[name.upper()] = value
 
+	def buildProject(self):
+		# Add all files inside project directory, excluding
+		# files that are included to other files
+		included_files = set()
+		for file in self.file_list:
+			# Read file
+			with open(file) as f:
+				code = f.read()
+
+			# Parse it
+			print("Parsing", file)
+			parser = Parser(file, code, syntax=self.syntax)
+
+			for (command, arg), labels in parser.parse():
+				if command == ".INCLUDE":
+					included_files.add(self.resolve(arg, os.path.dirname(parser.file)))
+
+		# Compile all not-ever-included files
+		# All these files are separate project roots,
+		# just with common extern labels
+		for file in self.file_list:
+			if file in included_files:
+				continue
+
+			# By default, build file from 1000
+			self.link_address = 0o1000
+			self.PC = self.link_address
+			self.linkPC = self.link_address
+
+			# No writes, no build
+			self.writes = []
+			self.build = []
+
+			# Compile file
+			print("Compiling", file, "as include root")
+			file = self.resolve(file, os.getcwd())
+			self.include_root = file
+			self.addFile(file)
+
+			# Save all writes
+			for ext, name in self.build:
+				print("    Output: {} ({} format) from {}".format(name, ext, util.octal(self.link_address)))
+				self.all_build.append((ext, name, self.writes, self.link_address))
+
+		print("Linking")
+		return self.link()
+
+
+
 	def addFile(self, file, relative_to=None):
 		if relative_to is None:
 			relative_to = os.getcwd()
 		else:
 			relative_to = os.path.dirname(relative_to)
 
-		# Resolve file path
-		if file.startswith("/") or file[1:3] == ":\\":
-			# Absolute
-			pass
-		else:
-			# Relative
-			file = os.path.join(relative_to, file)
+		file = self.resolve(file, relative_to)
 
 		with open(file) as f:
 			code = f.read()
@@ -71,22 +116,43 @@ class Compiler(object):
 			for label in self.labels:
 				Deferred(self.labels[label], int)(self)
 
-			array = []
-			for addr, value in self.writes:
-				value = Deferred(value, any)(self)
+			if self.project is not None:
+				all_build = []
+				for ext, file, writes, link_address in self.all_build:
+					array = []
+					for addr, value in writes:
+						value = Deferred(value, any)(self)
 
-				if not isinstance(value, list):
-					value = [value]
+						if not isinstance(value, list):
+							value = [value]
 
-				addr = Deferred(addr, int)(self)
-				for i, value1 in enumerate(value):
-					if addr + i >= len(array):
-						array += [0] * (addr + i - len(array) + 1)
-					array[addr + i] = value1
+						addr = Deferred(addr, int)(self)
+						for i, value1 in enumerate(value):
+							if addr + i >= len(array):
+								array += [0] * (addr + i - len(array) + 1)
+							array[addr + i] = value1
 
-			self.link_address = Deferred(self.link_address, int)(self)
-			self.output = array[self.link_address:]
-			return self.build
+					link_address = Deferred(link_address, int)(self)
+					all_build.append((ext, file, array[link_address:], link_address))
+
+				return all_build
+			else:
+				array = []
+				for addr, value in self.writes:
+					value = Deferred(value, any)(self)
+
+					if not isinstance(value, list):
+						value = [value]
+
+					addr = Deferred(addr, int)(self)
+					for i, value1 in enumerate(value):
+						if addr + i >= len(array):
+							array += [0] * (addr + i - len(array) + 1)
+						array[addr + i] = value1
+
+				self.link_address = Deferred(self.link_address, int)(self)
+				self.output = array[self.link_address:]
+				return self.build
 		except (ExpressionEvaluateError, CompilerError) as e:
 			print(e)
 			raise SystemExit(1)
@@ -108,13 +174,22 @@ class Compiler(object):
 			if label in self.labels:
 				self.err(coords, "Redefinition of label {}".format(label))
 
-			self.labels[label] = self.PC
+			self.labels[label] = self.linkPC
 
 		if command is None:
 			return
 		elif command == ".LINK":
-			self.PC = arg
-			if self.project is None:
+			if self.project is not None:
+				if self.include_root == parser.file:
+					self.PC = arg
+					self.linkPC = arg
+					self.link_address = arg
+				else:
+					print("    {}: linking from {}, output address may differ".format(parser.file, repr(arg)))
+					self.linkPC = arg
+			else:
+				self.PC = arg
+				self.linkPC = arg
 				self.link_address = arg
 		elif command == ".INCLUDE":
 			self.include(arg, parser.file)
@@ -141,7 +216,7 @@ class Compiler(object):
 		elif command == ".EVEN":
 			self.writeBytes(
 				Deferred.If(
-					self.PC % 2 == 0,
+					self.linkPC % 2 == 0,
 					[],
 					[0]
 				)
@@ -149,10 +224,10 @@ class Compiler(object):
 		elif command == ".ALIGN":
 			self.writeBytes(
 				Deferred.If(
-					self.PC % arg == 0,
+					self.linkPC % arg == 0,
 					[],
 					Deferred.Repeat(
-						arg - self.PC % arg,
+						arg - self.linkPC % arg,
 						0
 					)
 				)
@@ -163,9 +238,20 @@ class Compiler(object):
 					.then(lambda string: [ord(char) for char in string], list)
 			)
 		elif command == ".MAKE_RAW":
-			self.build.append(("raw", arg))
+			if parser.file == self.include_root:
+				if arg is None:
+					arg = parser.file
+					if arg.endswith(".mac"):
+						arg = arg[:-4]
+				self.build.append(("raw", arg))
 		elif command == ".MAKE_BIN":
-			self.build.append(("bin", arg))
+			if parser.file == self.include_root:
+				if arg is None:
+					arg = parser.file
+					if arg.endswith(".mac"):
+						arg = arg[:-4]
+					arg += ".bin"
+				self.build.append(("bin", arg))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass
 		elif command == ".DECIMALNUMBERS":
@@ -214,7 +300,7 @@ class Compiler(object):
 					coords
 				)
 			elif command in commands.jmp_commands:
-				offset = arg[0] - self.PC - 2
+				offset = arg[0] - self.linkPC - 2
 				offset = (Deferred(offset, int)
 					.then(lambda offset: (
 						self.err(coords, "Unaligned branch: {} bytes".format(util.octal(offset)))
@@ -270,7 +356,7 @@ class Compiler(object):
 					coords
 				)
 			elif command == "SOB":
-				offset = self.PC + 2 - arg[1]
+				offset = self.linkPC + 2 - arg[1]
 				offset = (Deferred(offset, int)
 					.then(lambda offset: (
 						self.err(coords, "Unaligned SOB: {} bytes".format(util.octal(offset)))
@@ -303,7 +389,7 @@ class Compiler(object):
 
 				if additional is not None:
 					if getattr(additional, "isOffset", False):
-						additional = additional - self.PC - 2
+						additional = additional - self.linkPC - 2
 
 					self.writeWord(additional, coords)
 
@@ -328,6 +414,7 @@ class Compiler(object):
 
 		self.writes.append((self.PC, byte))
 		self.PC = self.PC + 1
+		self.linkPC = self.linkPC + 1
 
 	def writeWord(self, word, coords=None):
 		word = (Deferred(word, int)
@@ -345,10 +432,12 @@ class Compiler(object):
 		self.writes.append((self.PC, word & 0xFF))
 		self.writes.append((self.PC + 1, word >> 8))
 		self.PC = self.PC + 2
+		self.linkPC = self.linkPC + 2
 
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))
 		self.PC = self.PC + Deferred(bytes_, list).then(len, int)
+		self.linkPC = self.linkPC + Deferred(bytes_, list).then(len, int)
 
 	def writeWords(self, words):
 		def wordsToBytes(words):
@@ -384,3 +473,13 @@ class Compiler(object):
 				text=coords["text"]
 			)
 		)
+
+
+	def resolve(self, file, relative_to):
+		# Resolve file path
+		if file.startswith("/") or file[1:3] == ":\\":
+			# Absolute
+			return file
+		else:
+			# Relative
+			return os.path.join(relative_to, file)

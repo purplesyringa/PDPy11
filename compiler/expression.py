@@ -29,9 +29,11 @@ class Expression(object):
 
 		def deferredRepr(self):
 			if isinstance(self.s, int):
-				return "Expression({})".format(octal(self.s))
+				return octal(self.s)
+			elif self.s[0] in "0123456789":
+				return "Label({})".format(self.s)
 			else:
-				return "Expression(@{})".format(self.s)
+				return self.s
 
 	@staticmethod
 	def asOffset(expr):
