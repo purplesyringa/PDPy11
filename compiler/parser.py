@@ -2,11 +2,25 @@ from __future__ import print_function
 import os
 from . import commands
 from .expression import Expression
+import operator
 
 
 whitespace = "\n\r\t "
 punctuation = ",!@#%^&*()[]\\{}|/~`'\";:?<>.+-="
 registers = ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "SP", "PC")
+
+operators = {}
+for priority, (assoc, ops) in enumerate((
+	("left",  (("|",  operator.or_   ),                                                     )),
+	("left",  (("^",  operator.xor   ),                                                     )),
+	("left",  (("&",  operator.and_  ),                                                     )),
+	("left",  (("<<", operator.lshift), (">>", operator.rshift  )                           )),
+	("left",  (("+",  operator.add   ), ("-",  operator.sub     )                           )),
+	("left",  (("*",  operator.mul   ), ("/",  operator.floordiv), ("%",  operator.floordiv)))
+)):
+	for char, op in ops:
+		operators[char] = (priority, assoc, op)
+
 
 class EndOfParsingError(Exception):
 	pass
@@ -512,10 +526,80 @@ class Parser(object):
 				value.isOffset = False
 				return value
 			else:
-				raise NotImplementedError(
-					"PDPY11 expression syntax is not implemented yet"
-				)
+				def execute(char):
+					_, _, op = operators[char]
+					b = stack.pop()
+					a = stack.pop()
+					stack.append(op(a, b))
 
+				stack = []
+				op_stack = []
+
+				while True:
+					# Math opening bracket
+					while self.needPunct("(", maybe=True):
+						op_stack.append("(")
+
+					# Really read value
+					stack.append(self.needValue(isLabel=isLabel))
+
+					# Match closing bracket
+					while self.needPunct(")", maybe=True):
+						while len(op_stack) > 0:
+							top = op_stack.pop()
+							if top == "(":
+								break
+							else:
+								execute(top)
+						else:
+							raise InvalidError("Unmatched ')'")
+
+					# Get operator
+					cur_char = self.needOperator(maybe=True)
+					if cur_char is None:
+						break
+					cur_priority, cur_assoc, cur_op = operators[cur_char]
+
+					while len(op_stack) > 0:
+						top_char = op_stack[-1]
+						if top_char == "(":
+							break
+						top_priority, top_assoc, top_op = operators[top_char]
+
+						if top_priority < cur_priority:
+							# If stack top priority is less than new priority,
+							# break
+							break
+						elif top_priority > cur_priority:
+							# If stack top priority is more than new priority,
+							# pop from stack top
+							execute(op_stack.pop())
+						else:
+							# If stack top priority equals new priority, pop
+							# from stack top if the operator is left-associative,
+							# and break if it's right-associative
+							if top_assoc == "left":
+								execute(op_stack.pop())
+							else:
+								break
+
+				while len(op_stack) > 0:
+					top = op_stack.pop()
+					if top == "(":
+						raise InvalidError("Unmatched '('")
+					else:
+						execute(top)
+
+				return stack.pop()
+
+
+	def needOperator(self, maybe=False):
+		with Transaction(self, maybe=maybe, stage="operator") as t:
+			operator_list = sorted(operators.keys(), key=len, reverse=True)
+			for operator in operator_list:
+				if self.needPunct(operator, maybe=True):
+					return operator
+			raise InvalidError("Expected operator")
 
 	def needValue(self, isLabel=False, maybe=False):
 		with Transaction(self, maybe=maybe, stage="value") as t:
