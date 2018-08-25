@@ -337,7 +337,7 @@ test.mac/ ; Ignore everything inside "test.mac" directory and "whatever/test.mac
 ```
 
 
-## How is PDPy11 better that other compilers?
+## How is PDPy11 better than other compilers?
 
 Any kind of label/constant relations are supported. For example:
 
