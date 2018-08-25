@@ -129,6 +129,8 @@ while len(args):
 		link = args.pop(0)
 	elif arg == "--syntax":
 		syntax = args.pop(0)
+	elif arg.startswith("--syntax="):
+		syntax = arg.replace("--syntax=", "")
 	elif arg[:2] == "-D":
 		name, value = arg[2:].split("=", 1)
 		str_punct = ("\"", "'", "/")
