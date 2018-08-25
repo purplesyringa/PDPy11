@@ -23,10 +23,12 @@ if len(sys.argv) < 2:
 	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
 	print()
-	print("""--syntax pdp11asm               (default) Use pdp11asm bugs/features: @M is same""")
-	print("""                                as @M(PC) (M is not resolved to M-.), make_raw  """)
-	print("""                                directive, .INCLUDE is same as .INCLUDE .END    """)
-	print("""--syntax pdpy11                 Use PDPy11 features, fix pdp11asm bugs          """)
+	print("""--syntax pdp11asm               Use pdp11asm bugs/features: @M is same as @M(PC)""")
+	print("""                                (M is not resolved to M-.), .INCLUDE is same as """)
+	print("""                                .INCLUDE .END                                   """)
+	print("""--syntax pdpy11                 (default) Use PDPy11 features, fix pdp11asm     """)
+	print("""                                bugs. This is the recommended mode for all new  """)
+	print("""                                projects.                                       """)
 	print("""-Dname=value                    Set global label <name> to integer <value>      """)
 	print("""                                (parsed using assembler rules)                  """)
 	print("""-Dname="value" or               Set global label <name> to string <value>       """)
@@ -34,8 +36,9 @@ if len(sys.argv) < 2:
 	print("""-Dname=/value/                                                                  """)
 	print()
 	print("Directives:")
-	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). Ignored in  """)
-	print("""                                project mode.                                   """)
+	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). However, if """)
+	print("""                                an included file contains .LINK, the included   """)
+	print("""                                file will be linked from N, but written to ".". """)
 	print(""".INCLUDE "filename" /           Compile file "filename", then return to current """)
 	print(""".RAW_INCLUDE filename           file. Embed "filename" to current binary file,  """)
 	print("""                                and link it from ".".                           """)
@@ -67,15 +70,32 @@ if len(sys.argv) < 2:
 	print("""                                --link and other CLI arguments.                 """)
 	print("""insert_file "filename"          Insert raw file "filename" to .                 """)
 	print(""".REPEAT count { code }          Repeat code inside .REPEAT block <count> times  """)
+	print(""".EXTERN NONE /                  Sets which labels are visible in other files.   """)
+	print(""".EXTERN ALL /                   "NONE" means all global labels are visible in   """)
+	print(""".EXTERN label1[, label2[, ...]] current file, but not others. "ALL" is the same """)
+	print("""                                as mentioning all the labels defined in current """)
+	print("""                                file. See also: Project mode.                   """)
 	print()
 	print("Project mode")
-	print("""In project mode, most directives, such as ORG, .LINK and .LA are ignored, and   """)
-	print("""only arguments from command line are used. .pdpy11ignore file is checked, and   """)
-	print("""all files (and directories -- this file has syntax that's similar to .gitignore)""")
-	print("""are not compiled or linked.                                                     """)
-	print("""The file to be compiled is main.mac -- it can include other files via .INCLUDE  """)
-	print("""or .RAW_INCLUDE. Moreover, these directives support passing directories now --  """)
-	print("""this includes all .mac files inside, not specified in .pdpy11ignore.            """)
+	print("""PDPy11 can compile projects. Use `--project directory` CLI argument for this.   """)
+	print("""PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` --  """)
+	print("""see below) containing `make_raw` or `make_bk0010_rom` directive. Such files are """)
+	print("""called "include roots".                                                         """)
+	print()
+	print("""In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which   """)
+	print("""means to include all `.mac` files inside the directory (except files mentioned  """)
+	print("""in `.pdpy11ignore`).                                                            """)
+	print()
+	print(".pdpy11ignore")
+	print("""This file has syntax similar to `.gitignore`. It sets what files to ignore when """)
+	print("""including directories.                                                          """)
+	print("""Example:                                                                        """)
+	print("""filename.mac    ; Ignore all files called filename.mac                          """)
+	print("""a/*             ; Ignore files in "a" directory and "whatever/a" directory      """)
+	print("""/a              ; Ignore files in "a" directory only                            """)
+	print("""test.mac/       ; Ignore everything inside "test.mac" directory and             """)
+	print("""                ; whatever/test.mac" directory, but not "test.mac" file or      """)
+	print("""                ; "whatever/test.mac" file                                      """)
 
 	raise SystemExit(0)
 
@@ -84,7 +104,7 @@ if len(sys.argv) < 2:
 isBin = None
 files = []
 output = None
-syntax = "pdp11asm"
+syntax = "pdpy11"
 link = "1000"
 project = None
 defines = []
@@ -170,8 +190,6 @@ if output is None:
 file_list = []
 
 if project is not None:
-	files.append(os.path.join(project, "main.mac"))
-
 	# Get pdpy11ignore
 	pdpy11ignore = []
 	try:
@@ -222,35 +240,36 @@ if project is not None:
 			else:
 				# No match -- not in pdpy11ignore
 				if file.endswith(".mac"):
+					file = os.path.join(os.getcwd(), file)
 					file_list.append(file)
 
 
 compiler = Compiler(syntax=syntax, link=link, file_list=file_list, project=project)
 for name, value in defines:
 	compiler.define(name, value)
-for file in files:
-	compiler.addFile(file)
 
-out_files = compiler.link()
-
-if project is None:
-	# Single file mode
-	for ext, file in out_files:
-		if file is None:
-			if ext != "raw":
-				file = output_noext + "." + ext
-			else:
-				file = output_noext
-
+if project is not None:
+	# Project mode
+	for ext, file, output, link_address in compiler.buildProject():
 		with open(file, "wb") as f:
-			f.write(encodeBinRaw(ext == "bin", compiler))
+			f.write(encodeBinRaw(ext == "bin", output, link_address))
+else:
+	# Single file mode
+	for file in files:
+		compiler.addFile(file)
 
-if len(out_files) == 0 or isBin is None or project is not None:
-	# Project mode / no out file
-	output_stream = open(output, "wb")
-	if sys.version_info[0] == 2:
-		# Python 2
-		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
-	else:
-		# Python 3
-		output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
+	out_files = compiler.link()
+
+	for ext, file in out_files:
+		with open(file, "wb") as f:
+			f.write(encodeBinRaw(ext == "bin", compiler.output, compiler.link_address))
+
+	if len(out_files) == 0 or isBin is None:
+		# No output file
+		output_stream = open(output, "wb")
+		if sys.version_info[0] == 2:
+			# Python 2
+			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
+		else:
+			# Python 3
+			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))

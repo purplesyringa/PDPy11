@@ -1,13 +1,11 @@
 import sys
 from .deferred import Deferred
 
-def encodeBinRaw(isBin, compiler):
-	raw = compiler.output
-
+def encodeBinRaw(isBin, raw, link_address):
 	if isBin:
 		header = [
-			compiler.link_address & 0xFF,
-			compiler.link_address >> 8,
+			link_address & 0xFF,
+			link_address >> 8,
 			len(raw) & 0xFF,
 			len(raw) >> 8
 		]

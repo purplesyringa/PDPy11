@@ -2,11 +2,25 @@ from __future__ import print_function
 import os
 from . import commands
 from .expression import Expression
+import operator
 
 
 whitespace = "\n\r\t "
 punctuation = ",!@#%^&*()[]\\{}|/~`'\";:?<>.+-="
 registers = ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "SP", "PC")
+
+operators = {}
+for priority, (assoc, ops) in enumerate((
+	("left",  (("|",  operator.or_   ),                                                     )),
+	("left",  (("^",  operator.xor   ),                                                     )),
+	("left",  (("&",  operator.and_  ),                                                     )),
+	("left",  (("<<", operator.lshift), (">>", operator.rshift  )                           )),
+	("left",  (("+",  operator.add   ), ("-",  operator.sub     )                           )),
+	("left",  (("*",  operator.mul   ), ("/",  operator.floordiv), ("%",  operator.floordiv)))
+)):
+	for char, op in ops:
+		operators[char] = (priority, assoc, op)
+
 
 class EndOfParsingError(Exception):
 	pass
@@ -14,6 +28,8 @@ class InvalidError(Exception):
 	pass
 
 class Parser(object):
+	last_mark = 0
+
 	def __init__(self, file, code, syntax):
 		self.code = code
 		self.pos = 0
@@ -21,7 +37,6 @@ class Parser(object):
 		self.decimal = False
 		self.syntax = syntax
 		self.last_label = ""
-		self.last_mark = 0
 		self.stage_stack = []
 		self.last_error_stages = []
 
@@ -113,6 +128,7 @@ class Parser(object):
 						yield self.handleInclude(), labels
 						if self.syntax == "pdp11asm":
 							raise EndOfParsingError()
+						return
 					elif literal == "RAW_INCLUDE":
 						yield self.handleInclude(raw=True), labels
 						return
@@ -151,6 +167,9 @@ class Parser(object):
 						return
 					elif literal == "REPEAT":
 						yield self.handleRepeat(), labels
+						return
+					elif literal == "EXTERN":
+						yield self.handleExtern(), labels
 						return
 					else:
 						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
@@ -198,10 +217,10 @@ class Parser(object):
 			yield self.handleCommand(), labels
 
 	def mark(self):
-		label = ".{}".format(self.last_mark)
+		label = ".{}".format(Parser.last_mark)
 		self.current_labels.append(label)
-		self.last_mark += 1
-		return Expression(label)
+		Parser.last_mark += 1
+		return Expression(label, self.file)
 
 
 
@@ -310,6 +329,14 @@ class Parser(object):
 					for cmd in self.parseCommand():
 						commands.append(cmd)
 
+	def handleExtern(self):
+		with Transaction(self, maybe=False, stage=".EXTERN"):
+			extern = [self.needLiteral()]
+			while self.needPunct(",", maybe=True):
+				extern.append(self.needLiteral())
+
+			return ".EXTERN", extern
+
 	def handleCommand(self):
 		self.skipWhitespace()
 
@@ -396,7 +423,7 @@ class Parser(object):
 						return (reg, "@(Rn)+"), None
 					else:
 						# @0(Rn)
-						return (reg, "@N(Rn)"), Expression(0)
+						return (reg, "@N(Rn)"), Expression(0, self.file)
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
 					t.noRollback()
@@ -499,10 +526,80 @@ class Parser(object):
 				value.isOffset = False
 				return value
 			else:
-				raise NotImplementedError(
-					"PDPY11 expression syntax is not implemented yet"
-				)
+				def execute(char):
+					_, _, op = operators[char]
+					b = stack.pop()
+					a = stack.pop()
+					stack.append(op(a, b))
 
+				stack = []
+				op_stack = []
+
+				while True:
+					# Math opening bracket
+					while self.needPunct("(", maybe=True):
+						op_stack.append("(")
+
+					# Really read value
+					stack.append(self.needValue(isLabel=isLabel))
+
+					# Match closing bracket
+					while self.needPunct(")", maybe=True):
+						while len(op_stack) > 0:
+							top = op_stack.pop()
+							if top == "(":
+								break
+							else:
+								execute(top)
+						else:
+							raise InvalidError("Unmatched ')'")
+
+					# Get operator
+					cur_char = self.needOperator(maybe=True)
+					if cur_char is None:
+						break
+					cur_priority, cur_assoc, cur_op = operators[cur_char]
+
+					while len(op_stack) > 0:
+						top_char = op_stack[-1]
+						if top_char == "(":
+							break
+						top_priority, top_assoc, top_op = operators[top_char]
+
+						if top_priority < cur_priority:
+							# If stack top priority is less than new priority,
+							# break
+							break
+						elif top_priority > cur_priority:
+							# If stack top priority is more than new priority,
+							# pop from stack top
+							execute(op_stack.pop())
+						else:
+							# If stack top priority equals new priority, pop
+							# from stack top if the operator is left-associative,
+							# and break if it's right-associative
+							if top_assoc == "left":
+								execute(op_stack.pop())
+							else:
+								break
+
+				while len(op_stack) > 0:
+					top = op_stack.pop()
+					if top == "(":
+						raise InvalidError("Unmatched '('")
+					else:
+						execute(top)
+
+				return stack.pop()
+
+
+	def needOperator(self, maybe=False):
+		with Transaction(self, maybe=maybe, stage="operator") as t:
+			operator_list = sorted(operators.keys(), key=len, reverse=True)
+			for operator in operator_list:
+				if self.needPunct(operator, maybe=True):
+					return operator
+			raise InvalidError("Expected operator")
 
 	def needValue(self, isLabel=False, maybe=False):
 		with Transaction(self, maybe=maybe, stage="value") as t:
@@ -516,7 +613,7 @@ class Parser(object):
 						"#'string': expected 1 or 2 chars, got 0"
 					)
 				elif len(string) == 1:
-					return Expression(ord(string[0]))
+					return Expression(ord(string[0]), self.file)
 				elif len(string) == 2:
 					a = ord(string[0])
 					b = ord(string[1])
@@ -525,7 +622,7 @@ class Parser(object):
 							"Cannot fit two UTF characters in 1 word: " +
 							"'{}'".format(string)
 						)
-					return Expression(a | (b << 8))
+					return Expression(a | (b << 8), self.file)
 				else:
 					raise InvalidError(
 						"Cannot fit {} characters in 1 word: '{}'".format(
@@ -538,9 +635,9 @@ class Parser(object):
 			if integer is not None:
 				# Label?
 				if isLabel:
-					return Expression("{}@{}".format(self.last_label, integer))
+					return Expression("{}@{}".format(self.last_label, integer), self.file)
 				else:
-					return Expression(integer)
+					return Expression(integer, self.file)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
@@ -550,7 +647,7 @@ class Parser(object):
 			label = self.needLiteral(maybe=True)
 			if label is None:
 				raise InvalidError("Expected integer, string, . (dot) or label")
-			return Expression(label)
+			return Expression(label, self.file)
 
 
 

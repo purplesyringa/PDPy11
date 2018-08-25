@@ -88,6 +88,33 @@ A:  .WORD 0
 
 If the program is loaded and executed from `1000`, `A` will be equal to `1006`, and if it's loaded from `2000`, `A` will still be equal to `1006`, because the `.LINK` address was not changed to `2000`.
 
+If a file containing `.LINK` (or `ORG` / `.LA`) is included, `.` is not changed, but the file is linked like a separate file from `addr`.
+
+Example:
+
+**main.mac**
+
+```
+.LINK 1000
+.WORD 1
+.WORD 2
+.WORD 3
+.INCLUDE "inc.mac"
+```
+
+**inc.mac**
+
+```
+.LINK 2000
+A: .WORD A
+```
+
+**Output:** (`.bin` from 1000)
+
+```
+000001 000002 000003 002000
+```
+
 #### `.INCLUDE /filename/` / `.RAW_INCLUDE filename`
 
 In `pdpy11` mode, the commands work the same way. In `pdp11asm` compatibility mode, `.INCLUDE` works like `.INCLUDE + .END`, and `.RAW_INCLUDE` works correctly.
@@ -126,7 +153,7 @@ For compatibility with `pdp11asm`. Raises syntax error, as PDPy11 doesn't suppor
 
 #### `.SYNTAX pdp11asm` / `.SYNTAX pdpy11`
 
-Default: `pdp11asm`
+Default: `pdpy11`
 
 Enables (`pdp11asm`) or disables (`pdpy11`) pdp11asm compatibility mode, including `.INCLUDE` and other commands.
 
@@ -201,13 +228,84 @@ Include `filename` directly to output.
 
 Repeat `commands` exactly `count` times.
 
+#### `.EXTERN NONE` / `.EXTERN ALL` / `.EXTERN label[, ...]`
+
+Default: `NONE`;
+
+Sets what labels are visible in other files.
+
+`NONE` means that any labels inside current file are visible in current file only, and they can be registered in other files.
+
+Example:
+
+**a.mac**
+
+```
+.EXTERN NONE
+VAR = 1
+.WORD VAR
+.INCLUDE "b.mac"
+.WORD VAR
+```
+
+**b.mac**
+
+```
+.EXTERN NONE
+VAR = 2
+.WORD VAR
+```
+
+**Output:**
+
+```
+000001 000002 000001
+```
+
+`ALL` is the same as mentioning all the labels defined in current file.
+
+Example:
+
+**a.mac**
+
+```
+.EXTERN LABEL_A
+LABEL_A = 1
+LABEL_B = 2
+.WORD LABEL_A, LABEL_B
+.INCLUDE "b.mac"
+.WORD LABEL_A, LABEL_B
+```
+
+**b.mac**
+
+```
+LABEL_B = 3
+.WORD LABEL_A, LABEL_B
+```
+
+**Output:**
+
+```
+000001 000002 000001 000003 000001 000002
+```
+
 
 ### Project mode
 
-PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile `directory/main.mac` file. However, there are some differences from using `pdpy11 directory/main.mac`:
+PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw` or `make_bk0010_rom` directive. Such files are called "include roots".
 
-- `ORG` / `.LINK` / `.LA` directives are ignored.
-- `.INCLUDE` and `.RAW_INCLUDE` can include directories, which means to include all `.mac` files inside the directory (except files mentioned in `.pdpy11ignore`).
+Example:
+
+**main.mac**
+
+```
+.INCLUDE "a.mac"
+.INCLUDE "b.mac"
+make_bk0010_rom ; create ProjectDirectory\main.bin
+```
+
+In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which means to include all `.mac` files inside the directory (except files mentioned in `.pdpy11ignore`).
 
 #### `.pdpy11ignore`
 
@@ -223,7 +321,7 @@ test.mac/ ; Ignore everything inside "test.mac" directory and "whatever/test.mac
 ```
 
 
-## Features
+## How is PDPy11 better than other compilers?
 
 Any kind of label/constant relations are supported. For example:
 
