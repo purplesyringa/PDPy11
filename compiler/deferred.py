@@ -335,3 +335,28 @@ class Deferred(object):
 		a = cls(a)
 		b = cls(b)
 		return cls(Lambda(a, "or", lambda a, b: a or b, b), bool)
+
+	@classmethod
+	def Same(cls, a, b, strict=False):
+		# Returns True if a() will always be equal to b()
+		a = cls(a)
+		b = cls(b)
+
+		if a.cached:
+			a_value = a()
+		elif isinstance(a.f, Lambda) and a.f.optext is None:
+			a_value = a()
+		else:
+			return False
+
+		if b.cached:
+			b_value = b()
+		elif isinstance(b.f, Lambda) and b.f.optext is None:
+			b_value = b()
+		else:
+			return False
+
+		if strict:
+			return a_value is b_value
+		else:
+			return a_value == b_value

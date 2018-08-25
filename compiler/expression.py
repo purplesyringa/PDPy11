@@ -28,7 +28,7 @@ class Expression(object):
 							global_s = "{}:{}".format(self.file_id, self.s)
 							return compiler.labels[global_s]
 						except KeyError:
-							raise ExpressionEvaluateError("Label '{}' not found".format(self.s))
+							raise ExpressionEvaluateError("Label '{}' not found\n  at {}".format(self.s, self.file_id))
 
 				return Deferred(label, int)
 

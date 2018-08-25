@@ -293,32 +293,16 @@ LABEL_B = 3
 
 ### Project mode
 
-PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) that aren't included to other files.
-
-Example (directory structure):
-
-```
-- TestProject
-  + a.mac (includes b.mac)
-  + b.mac
-  + SubDirectory
-    + c.mac (includes d.mac and a.mac)
-    + d.mac
-    + e.mac
-```
-
-In this case, only `c.mac` and `e.mac` will be built -- other files are expected to be built when they are included. These files are called "include roots".
-
-No output files are created by default: you must use `make_raw` or `make_bk0010_rom` in one (or both) of include roots.
+PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw` or `make_bk0010_rom` directive. Such files are called "include roots".
 
 Example:
 
-**c.mac**
+**main.mac**
 
 ```
-.INCLUDE "d.mac"
 .INCLUDE "a.mac"
-make_bk0010_rom ; create SubDirectory/c.bin
+.INCLUDE "b.mac"
+make_bk0010_rom ; create ProjectDirectory\main.bin
 ```
 
 In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which means to include all `.mac` files inside the directory (except files mentioned in `.pdpy11ignore`).

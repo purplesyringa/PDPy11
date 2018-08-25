@@ -16,7 +16,8 @@ class Compiler(object):
 		self.link_address = link
 		self.file_list = file_list
 		self.project = project
-		self.labels = {}
+		self.global_labels = {}
+		self.labels = self.global_labels
 		self.PC = link
 		self.linkPC = link
 		self.all_build = []
@@ -27,7 +28,7 @@ class Compiler(object):
 	def define(self, name, value):
 		value_text = "\"{}\"".format(value) if isinstance(value, str) else value
 
-		if name.upper() in self.labels:
+		if name.upper() in self.global_labels:
 			self.err({
 				"file": "CLI",
 				"line": 1,
@@ -35,12 +36,12 @@ class Compiler(object):
 				"text": "-D{}={}".format(name, value_text)
 			}, "Redefinition of label {}".format(name))
 
-		self.labels[name.upper()] = value
+		self.global_labels[name.upper()] = value
 
 	def buildProject(self):
-		# Add all files inside project directory, excluding
-		# files that are included to other files
-		included_files = set()
+		# Add all files inside project directory that have
+		# make_raw or make_bk0010_rom directive
+		to_make = set()
 		for file in self.file_list:
 			# Read file
 			with open(file) as f:
@@ -51,16 +52,12 @@ class Compiler(object):
 			parser = Parser(file, code, syntax=self.syntax)
 
 			for (command, arg), labels in parser.parse():
-				if command == ".INCLUDE":
-					included_files.add(self.resolve(arg, os.path.dirname(parser.file)))
+				if command == ".MAKE_RAW" or command == ".MAKE_BIN":
+					to_make.add(file)
 
-		# Compile all not-ever-included files
 		# All these files are separate project roots,
 		# just with common extern labels
-		for file in self.file_list:
-			if file in included_files:
-				continue
-
+		for file in to_make:
 			# By default, build file from 1000
 			self.link_address = 0o1000
 			self.PC = self.link_address
@@ -78,7 +75,12 @@ class Compiler(object):
 
 			# Save all writes
 			for ext, name in self.build:
-				print("    Output: {} ({} format) from {}".format(name, ext, util.octal(self.link_address)))
+				try:
+					link_address = Deferred(self.link_address, int)(self)
+					print("    Output: {} ({} format) from {}".format(name, ext, util.octal(link_address)))
+				except:
+					print("    Output: {} ({} format) from {}".format(name, ext, repr(self.link_address)))
+
 				self.all_build.append((ext, name, self.writes, self.link_address))
 
 		print("Linking")
@@ -260,7 +262,7 @@ class Compiler(object):
 		elif command == ".DECIMALNUMBERS":
 			pass
 		elif command == ".INSERT_FILE":
-			with open(self.resolve(parser.file, arg), "rb") as f:
+			with open(self.resolve(arg, os.path.dirname(parser.file)), "rb") as f:
 				if sys.version_info[0] == 2:
 					# Python 2
 					self.writeBytes([ord(char) for char in f.read()])
@@ -525,29 +527,32 @@ class Compiler(object):
 			# defined.
 			for label in self.labels:
 				if label.endswith(":{}".format(name)):
-					self.err(
-						coords,
-						("Redefinition of global label {} with local " +
-						"label defined in {}").format(name, label.rsplit(":", 1)[0])
-					)
+					if not Deferred.Same(self.labels[label], value):
+						self.err(
+							coords,
+							("Redefinition of global label {} with local " +
+							"label defined in {}").format(name, label.rsplit(":", 1)[0])
+						)
 
 			# Check that there is no file where such global label is
 			# defined.
 			if name in self.labels:
-				self.err(
-					coords,
-					"Redefinition of global label {}".format(name)
-				)
+				if not Deferred.Same(self.labels[name], value):
+					self.err(
+						coords,
+						"Redefinition of global label {}".format(name)
+					)
 
 			self.labels[name] = value
 		else:
 			# Check that there is no file where such global label is
 			# defined.
 			if name in self.labels:
-				self.err(
-					coords,
-					("Redefinition of global label {} with local " +
-					"label defined in {}").format(name, file_id)
-				)
+				if not Deferred.Same(self.labels[name], value):
+					self.err(
+						coords,
+						("Redefinition of global label {} with local " +
+						"label defined in {}").format(name, file_id)
+					)
 
 			self.labels["{}:{}".format(file_id, name)] = value
