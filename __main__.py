@@ -238,6 +238,7 @@ if project is not None:
 			else:
 				# No match -- not in pdpy11ignore
 				if file.endswith(".mac"):
+					file = os.path.join(os.getcwd(), file)
 					file_list.append(file)
 
 

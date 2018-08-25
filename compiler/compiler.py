@@ -96,6 +96,12 @@ class Compiler(object):
 
 		file = self.resolve(file, relative_to)
 
+		if os.path.isdir(file):
+			for subfile in self.file_list:
+				if subfile.startswith(file + os.sep):
+					self.addFile(subfile, relative_to=self.project)
+			return
+
 		with open(file) as f:
 			code = f.read()
 
