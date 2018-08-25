@@ -23,10 +23,12 @@ if len(sys.argv) < 2:
 	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
 	print()
-	print("""--syntax pdp11asm               (default) Use pdp11asm bugs/features: @M is same""")
-	print("""                                as @M(PC) (M is not resolved to M-.), make_raw  """)
-	print("""                                directive, .INCLUDE is same as .INCLUDE .END    """)
-	print("""--syntax pdpy11                 Use PDPy11 features, fix pdp11asm bugs          """)
+	print("""--syntax pdp11asm               Use pdp11asm bugs/features: @M is same as @M(PC)""")
+	print("""                                (M is not resolved to M-.), .INCLUDE is same as """)
+	print("""                                .INCLUDE .END                                   """)
+	print("""--syntax pdpy11                 (default) Use PDPy11 features, fix pdp11asm     """)
+	print("""                                bugs. This is the recommended mode for all new  """)
+	print("""                                projects.                                       """)
 	print("""-Dname=value                    Set global label <name> to integer <value>      """)
 	print("""                                (parsed using assembler rules)                  """)
 	print("""-Dname="value" or               Set global label <name> to string <value>       """)
@@ -102,7 +104,7 @@ if len(sys.argv) < 2:
 isBin = None
 files = []
 output = None
-syntax = "pdp11asm"
+syntax = "pdpy11"
 link = "1000"
 project = None
 defines = []

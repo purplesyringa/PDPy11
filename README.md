@@ -153,7 +153,7 @@ For compatibility with `pdp11asm`. Raises syntax error, as PDPy11 doesn't suppor
 
 #### `.SYNTAX pdp11asm` / `.SYNTAX pdpy11`
 
-Default: `pdp11asm`
+Default: `pdpy11`
 
 Enables (`pdp11asm`) or disables (`pdpy11`) pdp11asm compatibility mode, including `.INCLUDE` and other commands.
 
