@@ -7,7 +7,10 @@ class ExpressionEvaluateError(Exception):
 
 class Expression(object):
 	def __new__(cls, s, file_id):
-		return Deferred(cls.Get(s, file_id), int)
+		if isinstance(s, int):
+			return s
+		else:
+			return Deferred(cls.Get(s, file_id), int)
 
 	class Get(object):
 		def __init__(self, s, file_id):
@@ -15,27 +18,20 @@ class Expression(object):
 			self.file_id = file_id
 
 		def __call__(self, compiler):
-			if isinstance(self.s, int):
-				# Integer
-				return self.s
-			else:
-				# Label
-				def label():	
+			def label():
+				try:
+					return compiler.labels[self.s]
+				except KeyError:
 					try:
-						return compiler.labels[self.s]
+						global_s = "{}:{}".format(self.file_id, self.s)
+						return compiler.labels[global_s]
 					except KeyError:
-						try:
-							global_s = "{}:{}".format(self.file_id, self.s)
-							return compiler.labels[global_s]
-						except KeyError:
-							raise ExpressionEvaluateError("Label '{}' not found\n  at {}".format(self.s, self.file_id))
+						raise ExpressionEvaluateError("Label '{}' not found\n  at {}".format(self.s, self.file_id))
 
-				return Deferred(label, int)
+			return Deferred(label, int)
 
 		def deferredRepr(self):
-			if isinstance(self.s, int):
-				return octal(self.s)
-			elif self.s[0] in "0123456789":
+			if self.s[0] in "0123456789":
 				return "Label({})".format(self.s)
 			else:
 				return self.s
