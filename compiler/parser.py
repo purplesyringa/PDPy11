@@ -16,7 +16,7 @@ for priority, (assoc, ops) in enumerate((
 	("left",  (("&",  operator.and_  ),                                                     )),
 	("left",  (("<<", operator.lshift), (">>", operator.rshift  )                           )),
 	("left",  (("+",  operator.add   ), ("-",  operator.sub     )                           )),
-	("left",  (("*",  operator.mul   ), ("/",  operator.floordiv), ("%",  operator.floordiv)))
+	("left",  (("*",  operator.mul   ), ("/",  operator.floordiv), ("%",  operator.mod      )))
 )):
 	for char, op in ops:
 		operators[char] = (priority, assoc, op)
@@ -582,6 +582,9 @@ class Parser(object):
 								execute(op_stack.pop())
 							else:
 								break
+
+					# Push current operator onto stack
+					op_stack.append(cur_char)
 
 				while len(op_stack) > 0:
 					top = op_stack.pop()
