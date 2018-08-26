@@ -49,6 +49,37 @@ SOB R0, . ; SOB 100 times and then continue
 BR .-2 ; branch to SOB
 ```
 
+
+Any kind of label/constant relations are supported. For example:
+
+```
+A = B + 100
+B = 200 + C
+C = L2 - L1
+
+L1: .BLKW 100
+L2:
+```
+
+Some compilers won't compile this file (like my old fork of `pdp11asm`), but PDPy11 will evaluate it.
+
+
+In `pdpy11` mode (i.e. with `pdp11asm` compatibility mode disabled), you can use mathemetical expressions:
+
+```
+A = (B + C / 2) * 2 + 7 * 3
+```
+
+The supported operators are (sorted by priority):
+- `|` (or)
+- `^` (xor)
+- `&` (and)
+- `<<` and `>>` (shift)
+- `+` and `-`
+- `*`, `/` (divide and floor) and `%` (modulo)
+
+In `pdp11asm` compatibility mode, only `+`, `-`, `*` and `/` are supported, executed from left to right, independent of priority.
+
 ### Command line usage
 
 To compile a single file, use `pdpy11 filename.mac` syntax. The result will be outputted to `filename.bin`, with `.bin` header.
@@ -426,19 +457,3 @@ a/* ; Ignore files in "a" directory and "whatever/a" directory
 /a ; Ignore files in "a" directory only
 test.mac/ ; Ignore everything inside "test.mac" directory and "whatever/test.mac" directory, but not "test.mac" file or "whatever/test.mac" file
 ```
-
-
-## How is PDPy11 better than other compilers?
-
-Any kind of label/constant relations are supported. For example:
-
-```
-A = B + 100
-B = 200 + C
-C = L2 - L1
-
-L1: .BLKW 100
-L2:
-```
-
-Some compilers won't compile this file (like my old fork of `pdp11asm`), but PDPy11 will evaluate it.
