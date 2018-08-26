@@ -196,7 +196,7 @@ class Deferred(object):
 						self.pending_math[-1][2] &= other
 						return
 
-			if optext == "-":
+			if not reverse and optext == "-":
 				# Reverse -
 				optext = "+"
 				op = operator.add
@@ -339,19 +339,27 @@ class Deferred(object):
 	@classmethod
 	def Same(cls, a, b, strict=False):
 		# Returns True if a() will always be equal to b()
+		if strict:
+			if a is b:
+				return True
+		else:
+			if not isinstance(a, Deferred) and not isinstance(b, Deferred):
+				if a == b or a is b:
+					return True
+
 		a = cls(a)
 		b = cls(b)
 
 		if a.cached:
 			a_value = a()
-		elif isinstance(a.f, Lambda) and a.f.optext is None:
+		elif isinstance(a.f, Lambda) and a.f.optext is None and not callable(a.f.l):
 			a_value = a()
 		else:
 			return False
 
 		if b.cached:
 			b_value = b()
-		elif isinstance(b.f, Lambda) and b.f.optext is None:
+		elif isinstance(b.f, Lambda) and b.f.optext is None and not callable(b.f.l):
 			b_value = b()
 		else:
 			return False
@@ -359,4 +367,4 @@ class Deferred(object):
 		if strict:
 			return a_value is b_value
 		else:
-			return a_value == b_value
+			return a_value == b_value or a_value is b_value
