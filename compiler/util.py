@@ -36,4 +36,5 @@ def int8ToUint8(int8):
 
 
 def octal(n):
-	return oct(int(n)).replace("0o", "")
+	# Compatible with Python 2 and Python 3
+	return oct(int(n))[1:].replace("o", "")
