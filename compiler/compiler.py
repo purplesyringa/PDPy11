@@ -280,6 +280,7 @@ class Compiler(object):
 			self.defineLabel(parser.file, name, value, coords)
 		elif command == ".REPEAT":
 			count, repeat_commands = arg
+			count = Deferred(count, int)
 			try:
 				count = count(self)
 			except ExpressionEvaluateError as e:
@@ -533,32 +534,29 @@ class Compiler(object):
 			# defined.
 			for label in self.labels:
 				if label.endswith(":{}".format(name)):
-					if not Deferred.Same(self.labels[label], value):
-						self.err(
-							coords,
-							("Redefinition of global label {} with local " +
-							"label defined in {}").format(name, label.rsplit(":", 1)[0])
-						)
+					self.err(
+						coords,
+						("Redefinition of global label {} with local " +
+						"label defined in {}").format(name, label.rsplit(":", 1)[0])
+					)
 
 			# Check that there is no file where such global label is
 			# defined.
 			if name in self.labels:
-				if not Deferred.Same(self.labels[name], value):
-					self.err(
-						coords,
-						"Redefinition of global label {}".format(name)
-					)
+				self.err(
+					coords,
+					"Redefinition of global label {}".format(name)
+				)
 
 			self.labels[name] = value
 		else:
 			# Check that there is no file where such global label is
 			# defined.
 			if name in self.labels:
-				if not Deferred.Same(self.labels[name], value):
-					self.err(
-						coords,
-						("Redefinition of global label {} with local " +
-						"label defined in {}").format(name, file_id)
-					)
+				self.err(
+					coords,
+					("Redefinition of global label {} with local " +
+					"label defined in {}").format(name, file_id)
+				)
 
 			self.labels["{}:{}".format(file_id, name)] = value
