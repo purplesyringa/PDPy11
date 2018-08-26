@@ -171,6 +171,9 @@ class Parser(object):
 					elif literal == "EXTERN":
 						yield self.handleExtern(), labels
 						return
+					elif literal == "ONCE":
+						yield self.handleOnce(), labels
+						return
 					else:
 						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
 
@@ -336,6 +339,9 @@ class Parser(object):
 				extern.append(self.needLiteral())
 
 			return ".EXTERN", extern
+
+	def handleOnce(self):
+		return ".ONCE", None
 
 	def handleCommand(self):
 		self.skipWhitespace()

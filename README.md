@@ -119,6 +119,8 @@ A: .WORD A
 
 In `pdpy11` mode, the commands work the same way. In `pdp11asm` compatibility mode, `.INCLUDE` works like `.INCLUDE + .END`, and `.RAW_INCLUDE` works correctly.
 
+Though techinically it's not, `.INCLUDE` is practically the same as directly including included file's source code to current file.
+
 Example:
 
 **main.mac**
@@ -141,7 +143,7 @@ Example:
 000001 000001
 ```
 
-See also: `.EXTERN`
+See also: `.EXTERN`, `.ONCE`
 
 #### `.PDP11`
 
@@ -289,6 +291,111 @@ LABEL_B = 3
 ```
 000001 000002 000001 000003 000001 000002
 ```
+
+#### `.ONCE`
+
+`.ONCE` directive makes current file includable only once. If it was included before in current `pdpy11` call (whatever mode you use), it works like `.END`.
+
+Though you may think this is a quick hack, it has special semantic meaning.
+
+There are three cases when you want to use `.INCLUDE`.
+
+1. You type a small (or big) piece of code in a lot of files, because e.g. you often clear screen. You might want to optimize your time -- and you use `.INCLUDE`:
+
+**somecode.mac**
+
+```
+...
+.INCLUDE "util/cls.mac"
+...
+```
+
+**util/cls.mac**
+
+```
+    MOV R0, -(SP)
+    MOV R1, -(SP)
+
+    MOV #40000, R0
+    MOV #20000, R1
+1:  CLR (R0)+
+    SOB R1, 1
+
+    MOV (SP)+, R1
+    MOV (SP)+, R0
+```
+
+You include this file in many other files, whenever you need to clear screen.
+
+2. Another often usecase is a library. Pretend you are making a tool to find problems with your FDD or HDD, and there is an ability to test HDD controller (but not FDD!). In this case, you should put your HDD library to "lib/hdd.mac" and FDD library to "lib/fdd.mac". Then, you `.INCLUDE` these files to show that HDD/FDD driver is a dependency of current file.
+
+Example:
+
+**test-hdd.mac**
+
+```
+...
+.INCLUDE "lib/hdd.mac"
+...
+```
+
+**test-fdd.mac**
+
+```
+...
+.INCLUDE "lib/fdd.mac"
+...
+```
+
+**test-hdd-controller.mac**
+
+```
+...
+.INCLUDE "lib/hdd.mac"
+...
+```
+
+However, you'll get an error -- redefinition of label e.g. `READBLOCK`. That's because `lib/hdd.mac` is included twice, though you need it's code only once. That's when you need `.ONCE`:
+
+**lib/hdd.mac**
+
+```
+.ONCE
+; my HDD library
+```
+
+**lib/fdd.mac**
+
+```
+.ONCE
+; my FDD library
+```
+
+No more errors and code duplication.
+
+3. You might be making a file containing a list of constants, e.g.:
+
+**sel.mac**
+
+```
+.EXTERN ALL
+SEL1 = 177716
+SEL2 = 177714
+```
+
+Then you use `.INCLUDE` to show that current file needs such constants:
+
+**main.mac**
+
+```
+...
+.INCLUDE "sel.mac"
+MOV R0, @#SEL2
+...
+```
+
+As you might need `SEL1` & `SEL2` in several files, you add `.ONCE` to **sel.mac**, so this file's code is not parsed & compiled twice.
+
 
 
 ### Project mode

@@ -24,6 +24,7 @@ class Compiler(object):
 		self.build = []
 		self.writes = []
 		self.extern_labels = False
+		self.included_before = set()
 
 	def define(self, name, value):
 		value_text = "\"{}\"".format(value) if isinstance(value, str) else value
@@ -170,6 +171,7 @@ class Compiler(object):
 		parser = Parser(file, code, syntax=self.syntax)
 
 		extern_labels = self.extern_labels
+
 		self.extern_labels = False # .EXTERN NONE
 		try:
 			for (command, arg), labels in parser.parse():
@@ -323,6 +325,11 @@ class Compiler(object):
 				self.extern_labels = False
 			else:
 				self.extern_labels = label_list
+		elif command == ".ONCE":
+			if parser.file in self.included_before:
+				raise EOFError()
+			else:
+				self.included_before.add(parser.file)
 		else:
 			# It's a simple command
 			if command in commands.zero_arg_commands:
@@ -429,7 +436,13 @@ class Compiler(object):
 
 
 	def include(self, path, file):
+		old_PC = self.PC
+		old_linkPC = self.linkPC
+
 		self.addFile(path, relative_to=file)
+
+		include_length = self.PC - old_PC
+		self.linkPC = old_linkPC + include_length
 
 
 
