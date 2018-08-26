@@ -103,7 +103,7 @@ class Parser(object):
 			elif literal == "MAKE_RAW":
 				yield self.handleMakeRaw(), labels
 				return
-			elif literal == "MAKE_BK0010_ROM":
+			elif literal in ("MAKE_BK0010_ROM", "MAKE_BIN"):
 				yield self.handleMakeBin(), labels
 				return
 			elif literal == "CONVERT1251TOKOI8R":

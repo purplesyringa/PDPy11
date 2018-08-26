@@ -59,7 +59,7 @@ To set output filename, use: `pdpy11 filename.mac -o output`. It will be outputt
 
 To set output format, both CLI arguments and meta-commands can be used.
 
-If at least one meta-command is used inside file (`make_bk0010_rom` = `--bin` or `make_raw` = `--raw`) is used, the result won't be outputted to `filename` or `filename.bin`. To force it as well as `make_bk0010_rom` and `make_raw`, add `--bin` or `--raw` CLI argument.
+If at least one meta-command is used inside file (`make_bk0010_rom`/`make_bin` = `--bin` or `make_raw` = `--raw`) is used, the result won't be outputted to `filename` or `filename.bin`. To force it as well as `make_bk0010_rom`/`make_bin` and `make_raw`, add `--bin` or `--raw` CLI argument.
 
 To set link address if it's not mentioned in `.mac` file, use `--link N` argument. It has less priority than `.LINK` or `.LA` or `ORG`.
 
@@ -199,7 +199,7 @@ Output `string`, and then zero byte.
 
 Output resulting file (since link address) to `filename`, or to compilable-file-without-mac-extension if filename is not passed.
 
-#### `make_bk0010_rom [/filename/]`
+#### `make_bk0010_rom [/filename/]` / `make_bin [/filename/]`
 
 Output resulting file (since link address) with binary header to `filename`, or to compilable-file-without-mac-extension + `.bin` if filename is not passed.
 
@@ -400,7 +400,7 @@ As you might need `SEL1` & `SEL2` in several files, you add `.ONCE` to **sel.mac
 
 ### Project mode
 
-PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw` or `make_bk0010_rom` directive. Such files are called "include roots".
+PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw`, `make_bk0010_rom` or `make_bin` directive. Such files are called "include roots".
 
 Example:
 
@@ -409,7 +409,7 @@ Example:
 ```
 .INCLUDE "a.mac"
 .INCLUDE "b.mac"
-make_bk0010_rom ; create ProjectDirectory\main.bin
+make_bin ; create ProjectDirectory\main.bin
 ```
 
 In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which means to include all `.mac` files inside the directory (except files mentioned in `.pdpy11ignore`).
