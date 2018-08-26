@@ -16,7 +16,7 @@ You can check the full docs as [docs.md](docs.md).
 
 ## TL;DR aka tutorial
 
-### Compiling to .bin
+### Compiling single file to .bin
 
 1. Create `test.mac` file with the following content:
 
@@ -150,3 +150,71 @@ To repeat some code a few times, use:
 ```
 
 The above is the same as `.BLKW 10`. You can use any commands or macrocommands inside `.REPEAT`.
+
+
+### Project mode
+
+It's quite possible that you're making a big project -- otherwise, it doesn't make sense to use such a big tool as `pdpy11`. `pdpy11` has a special mode for projects.
+
+1. Create directory `TestProject`.
+
+2. Create `test.mac` file inside `TestProject` with the following content:
+
+```
+MOV #2, R1
+make_bin
+```
+
+3. Run `python -m pdpy11 --project TestProject`.
+
+This will generate `TestProject/test.bin` file with the same content as we got in *Compiling single file to .bin* section.
+
+Notice that we've used `make_bin`, but we didn't add `--bin` or `--raw` CLI argument. In a large project, you may have several outputs -- e.g., if you're making an OS, you may have a *bootloader* (< 512 bytes) and *os* (the kernel itself, the stuff *bootloader* loads). So you have to manually set which files should be compiled to `.bin` or `.raw` -- they are called "include roots".
+
+---
+
+An interesting point is that all external labels are shared between all "include roots". For example:
+
+**bootloader.mac**
+
+```
+.EXTERN OS_LINK
+OS_LINK = 100000
+
+; load os
+MOV #OS_LINK, R0
+...
+CALL @#160004
+
+; startup
+JMP @#OS_STARTUP
+
+make_raw
+```
+
+**os.mac**
+
+```
+.EXTERN OS_STARTUP
+
+.LINK OS_LINK
+
+.WORD 0 ; some options for the processor macrocode,
+.WORD 1 ; or some other constants that must be exactly
+.WORD 2 ; at OS_LINK
+
+OS_STARTUP: ; the code to be executed when the kernel is loaded
+...
+
+make_bin
+```
+
+The above project, when compiled, will result in two files: `bootloader` and `os.bin`, with `OS_LINK` and `OS_STARTUP` labels shared between them and all other `.mac` files.
+
+---
+
+Some other useful things added by project mode:
+
+- `.INCLUDE` now works on directories: it includes all `.mac` files inside the directory.
+- You can use `.pdpy11ignore` to set what files aren't included when `.INCLUDE` is called on directory and what files aren't checked for `make_raw` and `make_bin` (i.e. which files can't be "include roots").
+- You can run `.INCLUDE` on files that have `.LINK`. This is the same as compiling the included file in raw mode and embedding the raw content to current file, like with `insert_file`.
