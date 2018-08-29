@@ -23,16 +23,16 @@ class Expression(object):
 					return compiler.labels[self.s]
 				except KeyError:
 					try:
-						global_s = "{}:{}".format(self.file_id, self.s)
+						global_s = "{file_id}:{s}".format(file_id=self.file_id, s=self.s)
 						return compiler.labels[global_s]
 					except KeyError:
-						raise ExpressionEvaluateError("Label '{}' not found\n  at {}".format(self.s, self.file_id))
+						raise ExpressionEvaluateError("Label '{s}' not found\n  at {file_id}".format(s=self.s, file_id=self.file_id))
 
 			return Deferred(label, int)
 
 		def deferredRepr(self):
 			if self.s[0] in "0123456789":
-				return "Label({})".format(self.s)
+				return "Label({s})".format(s=self.s)
 			else:
 				return self.s
 

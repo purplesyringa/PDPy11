@@ -41,17 +41,17 @@ class Lambda(object):
 
 	def __repr__(self):
 		if self.r is not None:
-			return "({!r} {} {!r})".format(self.l, self.getOpText(), self.r)
+			return "({l!r} {op} {r!r})".format(l=self.l, op=self.getOpText(), r=self.r)
 		elif self.op is not None:
-			return "({}{!r})".format(self.getOpText(), self.l)
+			return "({op}{value!r})".format(op=self.getOpText(), value=self.l)
 		elif self.optext is not None:
-			return "({})".format(self.getOpText())
+			return "({op})".format(op=self.getOpText())
 		elif isinstance(self.l, Lambda):
 			return repr(self.l)
 		elif hasattr(self.l, "deferredRepr"):
 			return self.l.deferredRepr()
 		elif callable(self.l):
-			return "{}()".format(self.l.__name__)
+			return "{name}()".format(name=self.l.__name__)
 		else:
 			return repr(self.l)
 
@@ -254,9 +254,9 @@ class Deferred(object):
 		rpr = repr(self.f)
 		for optext, _, other, reverse in self.pending_math:
 			if reverse:
-				rpr = "({!r} {} {})".format(other, optext, rpr)
+				rpr = "({l!r} {op} {r})".format(l=other, op=optext, r=rpr)
 			else:
-				rpr = "({} {} {!r})".format(rpr, optext, other)
+				rpr = "({l} {op} {r!r})".format(l=rpr, op=optext, r=other)
 		return rpr
 
 	__int__ = convert(int)
@@ -275,7 +275,7 @@ class Deferred(object):
 		return self.then(tp, tp)
 
 	def then(self, f, tp):
-		return Deferred(Lambda(self, "({})".format(f.__name__), lambda value: f(value)), tp)
+		return Deferred(Lambda(self, "({name})".format(name=f.__name__), lambda value: f(value)), tp)
 
 
 
@@ -298,7 +298,7 @@ class Deferred(object):
 
 		return cls(Lambda(
 			lambda context: true(context) if cond(context) else false(context),
-			lambda: "{!r} if {!r} else {!r}".format(true, cond, false)
+			lambda: "{true!r} if {cond!r} else {false!r}".format(true=true, cond=cond, false=false)
 		), res_type)
 
 	@classmethod
@@ -314,14 +314,14 @@ class Deferred(object):
 				result.append(what1)
 			return result
 
-		return cls(Lambda(f, lambda: "[{!r}] * {!r}".format(what, count)), list)
+		return cls(Lambda(f, lambda: "[{what!r}] * {count!r}".format(what=what, count=count)), list)
 
 	@classmethod
 	def Raise(cls, err):
 		err = cls(err)
 		def cb():
 			raise err()
-		return cls(Lambda(cb, lambda: "raise {!r}".format(err)), Deferred.Raise)
+		return cls(Lambda(cb, lambda: "raise {err!r}".format(err=err)), Deferred.Raise)
 
 
 	@classmethod

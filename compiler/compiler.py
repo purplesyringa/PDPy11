@@ -27,15 +27,15 @@ class Compiler(object):
 		self.included_before = set()
 
 	def define(self, name, value):
-		value_text = "\"{}\"".format(value) if isinstance(value, str) else value
+		value_text = "\"{str}\"".format(str=value) if isinstance(value, str) else value
 
 		if name.upper() in self.global_labels:
 			self.err({
 				"file": "CLI",
 				"line": 1,
 				"column": 1,
-				"text": "-D{}={}".format(name, value_text)
-			}, "Redefinition of label {}".format(name))
+				"text": "-D{name}={value}".format(name=name, value=value_text)
+			}, "Redefinition of label {label}".format(label=name))
 
 		self.global_labels[name.upper()] = value
 
@@ -78,9 +78,9 @@ class Compiler(object):
 			for ext, name in self.build:
 				try:
 					link_address = Deferred(self.link_address, int)(self)
-					print("    Output: {} ({} format) from {}".format(name, ext, util.octal(link_address)))
+					print("    Output: {name} ({ext} format) from {link}".format(name=name, ext=ext, link=util.octal(link_address)))
 				except:
-					print("    Output: {} ({} format) from {}".format(name, ext, repr(self.link_address)))
+					print("    Output: {name} ({ext} format) from {link}".format(name=name, ext=ext, link=repr(self.link_address)))
 
 				self.all_build.append((ext, name, self.writes, self.link_address))
 
@@ -198,7 +198,7 @@ class Compiler(object):
 					self.linkPC = arg
 					self.link_address = arg
 				else:
-					print("    {}: linking from {}, output address may differ".format(parser.file, repr(arg)))
+					print("    {name}: linking from {link}, output address may differ".format(name=parser.file, link=repr(arg)))
 					self.linkPC = arg
 			else:
 				self.PC = arg
@@ -344,12 +344,12 @@ class Compiler(object):
 				offset = arg[0] - self.linkPC - 2
 				offset = (Deferred(offset, int)
 					.then(lambda offset: (
-						self.err(coords, "Unaligned branch: {} bytes".format(util.octal(offset)))
+						self.err(coords, "Unaligned branch: {len} bytes".format(len=util.octal(offset)))
 						if offset % 2 == 1
 						else offset // 2
 					), int)
 					.then(lambda offset: (
-						self.err(coords, "Too far branch: {} words".format(util.octal(offset)))
+						self.err(coords, "Too far branch: {len} words".format(len=util.octal(offset)))
 						if offset < -128 or offset > 127
 						else offset
 					), int)
@@ -365,12 +365,12 @@ class Compiler(object):
 
 				value = (Deferred(arg[0], int)
 					.then(lambda value: (
-						self.err(coords, "Too big immediate value: {}".format(util.octal(value)))
+						self.err(coords, "Too big immediate value: {value}".format(value=util.octal(value)))
 						if value > max_imm_value
 						else value
 					), int)
 					.then(lambda value: (
-						self.err(coords, "Negative immediate value: {}".format(util.octal(value)))
+						self.err(coords, "Negative immediate value: {value}".format(value=util.octal(value)))
 						if value < 0
 						else value
 					), int)
@@ -400,12 +400,12 @@ class Compiler(object):
 				offset = self.linkPC + 2 - arg[1]
 				offset = (Deferred(offset, int)
 					.then(lambda offset: (
-						self.err(coords, "Unaligned SOB: {} bytes".format(util.octal(offset)))
+						self.err(coords, "Unaligned SOB: {len} bytes".format(len=util.octal(offset)))
 						if offset % 2 == 1
 						else offset // 2
 					), int)
 					.then(lambda offset: (
-						self.err(coords, "Too far SOB: {} words".format(util.octal(offset)))
+						self.err(coords, "Too far SOB: {len} words".format(len=util.octal(offset)))
 						if offset < 0 or offset > 63
 						else offset
 					), int)
@@ -418,7 +418,7 @@ class Compiler(object):
 					coords
 				)
 			else:
-				self.err(coords, "Unknown command {}".format(command))
+				self.err(coords, "Unknown command {command}".format(command=command))
 
 			for arg1 in arg:
 				if isinstance(arg1, tuple):
@@ -449,11 +449,11 @@ class Compiler(object):
 	def writeByte(self, byte, coords=None):
 		byte = (Deferred(byte, int)
 			.then(lambda byte: (
-				self.err(coords, "Byte {} is too big".format(util.octal(byte)))
+				self.err(coords, "Byte {byte} is too big".format(byte=util.octal(byte)))
 				if byte >= 256 else byte
 			), int)
 			.then(lambda byte: (
-				self.err(coords, "Byte {} is too small".format(util.octal(byte)))
+				self.err(coords, "Byte {byte} is too small".format(byte=util.octal(byte)))
 				if byte < -256 else byte
 			), int)
 			.then(lambda byte: byte + 256 if byte < 0 else byte, int)
@@ -466,11 +466,11 @@ class Compiler(object):
 	def writeWord(self, word, coords=None):
 		word = (Deferred(word, int)
 			.then(lambda word: (
-				self.err(coords, "Word {} is too big".format(util.octal(word)))
+				self.err(coords, "Word {word} is too big".format(word=util.octal(word)))
 				if word >= 65536 else word
 			), int)
 			.then(lambda word: (
-				self.err(coords, "Word {} is too small".format(util.octal(word)))
+				self.err(coords, "Word {word} is too small".format(word=util.octal(word)))
 				if word < -65536 else word
 			), int)
 			.then(lambda word: word + 65536 if word < 0 else word, int)
@@ -513,8 +513,8 @@ class Compiler(object):
 
 	def err(self, coords, text):
 		raise CompilerError(
-			"{}\n  at file {file} (line {line}, column {column})\n\n{text}".format(
-				text,
+			"{err}\n  at file {file} (line {line}, column {column})\n\n{text}".format(
+				err=err,
 				file=coords["file"],
 				line=coords["line"], column=coords["column"],
 				text=coords["text"]
@@ -546,11 +546,11 @@ class Compiler(object):
 			# Check that there is no file where such local label is
 			# defined.
 			for label in self.labels:
-				if label.endswith(":{}".format(name)):
+				if label.endswith(":{name}".format(name=name)):
 					self.err(
 						coords,
 						("Redefinition of global label {} with local " +
-						"label defined in {}").format(name, label.rsplit(":", 1)[0])
+						"label defined in {file_id}").format(name, file_id=label.rsplit(":", 1)[0])
 					)
 
 			# Check that there is no file where such global label is
@@ -558,7 +558,7 @@ class Compiler(object):
 			if name in self.labels:
 				self.err(
 					coords,
-					"Redefinition of global label {}".format(name)
+					"Redefinition of global label {name}".format(name=name)
 				)
 
 			self.labels[name] = value
@@ -568,8 +568,8 @@ class Compiler(object):
 			if name in self.labels:
 				self.err(
 					coords,
-					("Redefinition of global label {} with local " +
-					"label defined in {}").format(name, file_id)
+					("Redefinition of global label {name} with local " +
+					"label defined in {file_id}").format(name=name, file_id=file_id)
 				)
 
-			self.labels["{}:{}".format(file_id, name)] = value
+			self.labels["{file_id}:{name}".format(file_id=file_id, name=name)] = value

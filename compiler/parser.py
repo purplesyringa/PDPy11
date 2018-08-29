@@ -58,7 +58,7 @@ class Parser(object):
 
 			print("Syntax error")
 			print(e)
-			print("  at file", self.file, "(line {}, column {})".format(line, col))
+			print("  at file", self.file, "(line {line}, column {column})".format(line=line, column=col))
 			for stage in self.last_error_stages:
 				if stage is not None:
 					print("  at", stage)
@@ -175,7 +175,7 @@ class Parser(object):
 						yield self.handleOnce(), labels
 						return
 					else:
-						raise InvalidError("Expected .COMMAND, got '.{}'".format(literal))
+						raise InvalidError("Expected .COMMAND, got '.{command}'".format(command=literal))
 
 			if literal is None:
 				# Maybe integer label?
@@ -183,7 +183,7 @@ class Parser(object):
 				self.needPunct(":")
 
 				# It's a label
-				label = "{}@{}".format(self.last_label, label)
+				label = "{last_label}@{label}".format(last_label=self.last_label, label=label)
 				t.exit()
 				for cmd in self.parseCommand(labels=labels + [label]):
 					yield cmd
@@ -220,7 +220,7 @@ class Parser(object):
 			yield self.handleCommand(), labels
 
 	def mark(self):
-		label = ".{}".format(Parser.last_mark)
+		label = ".{last_mark}".format(last_mark=Parser.last_mark)
 		self.current_labels.append(label)
 		Parser.last_mark += 1
 		return Expression(label, self.file)
@@ -388,7 +388,7 @@ class Parser(object):
 				return command_name, (reg1, arg2)
 			else:
 				raise InvalidError(
-					"Expected command name, got '{}'".format(command_name)
+					"Expected command name, got '{command_name}'".format(command_name=command_name)
 				)
 
 
@@ -502,7 +502,7 @@ class Parser(object):
 				return literal
 			else:
 				raise InvalidError(
-					"Expected register, got '{}'".format(literal)
+					"Expected register, got '{register}'".format(register=literal)
 				)
 
 
@@ -629,13 +629,14 @@ class Parser(object):
 					if a >= 256 or b >= 256:
 						raise InvalidError(
 							"Cannot fit two UTF characters in 1 word: " +
-							"'{}'".format(string)
+							"'{string}'".format(string=string)
 						)
 					return Expression(a | (b << 8), self.file)
 				else:
 					raise InvalidError(
-						"Cannot fit {} characters in 1 word: '{}'".format(
-							len(string), string
+						("Cannot fit {len} characters in 1 word: " +
+						"'{string}'").format(
+							len=len(string), string=string
 						)
 					)
 
@@ -644,7 +645,7 @@ class Parser(object):
 			if integer is not None:
 				# Label?
 				if isLabel:
-					return Expression("{}@{}".format(self.last_label, integer), self.file)
+					return Expression("{last_label}@{int}".format(last_label=self.last_label, int=integer), self.file)
 				else:
 					return Expression(integer, self.file)
 
@@ -675,7 +676,7 @@ class Parser(object):
 					if self.code[self.pos] in whitespace + punctuation:
 						# Punctuation or whitespace
 						if literal == "":
-							raise InvalidError("Expected literal, got '{}'".format(self.code[self.pos]))
+							raise InvalidError("Expected literal, got '{char}'".format(char=self.code[self.pos]))
 						return literal
 				except IndexError:
 					# End
@@ -690,11 +691,11 @@ class Parser(object):
 					literal += self.code[self.pos].upper()
 					self.pos += 1
 				else:
-					raise InvalidError("Expected literal, got '{}'".format(self.code[self.pos]))
+					raise InvalidError("Expected literal, got '{char}'".format(char=self.code[self.pos]))
 
 
 	def needPunct(self, char, maybe=False):
-		with Transaction(self, maybe=maybe, stage="sign '{}'".format(char)):
+		with Transaction(self, maybe=maybe, stage="sign '{char}'".format(char=char)):
 			# Skip whitespace
 			self.skipWhitespace()
 
@@ -702,18 +703,18 @@ class Parser(object):
 				self.pos += 1
 				return char
 			else:
-				raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+				raise InvalidError("Expected '{exp}', got '{char}'".format(exp=char, char=self.code[self.pos]))
 
 	def needChar(self, char, maybe=False):
-		with Transaction(self, maybe=maybe, stage="character '{}'".format(char)):
+		with Transaction(self, maybe=maybe, stage="character '{char}'".format(char=char)):
 			try:
 				if self.code[self.pos].upper() == char:
 					self.pos += 1
 					return char
 				else:
-					raise InvalidError("Expected '{}', got '{}'".format(char, self.code[self.pos]))
+					raise InvalidError("Expected '{exp}', got '{char}'".format(exp=char, char=self.code[self.pos]))
 			except IndexError:
-				raise InvalidError("Expected '{}', got EOF".format(char))
+				raise InvalidError("Expected '{char}', got EOF".format(char=char))
 
 
 	def needInteger(self, maybe=False):
@@ -746,7 +747,7 @@ class Parser(object):
 				elif self.needChar("B", maybe=True):
 					# Binary
 					if integer != "0":
-						raise InvalidError("Expected integer, got '{}b'".format(integer))
+						raise InvalidError("Expected integer, got '{int}b'".format(int=integer))
 					else:
 						if radix is None:
 							radix = 2
@@ -757,7 +758,7 @@ class Parser(object):
 				elif self.needChar("O", maybe=True):
 					# Octal
 					if integer != "0":
-						raise InvalidError("Expected integer, got '{}o'".format(integer))
+						raise InvalidError("Expected integer, got '{int}o'".format(int=integer))
 					else:
 						if radix is None:
 							radix = 8
@@ -768,7 +769,7 @@ class Parser(object):
 				elif self.needChar("X", maybe=True):
 					# Hexadimical
 					if integer != "0":
-						raise InvalidError("Expected integer, got '{}x'".format(integer))
+						raise InvalidError("Expected integer, got '{int}x'".format(int=integer))
 					elif radix is None:
 						radix = 16
 						t.noRollback()
@@ -788,7 +789,7 @@ class Parser(object):
 						integer += self.code[self.pos].upper()
 						self.pos += 1
 					else:
-						raise InvalidError("Expected integer, got '{}'".format(self.code[self.pos]))
+						raise InvalidError("Expected integer, got '{char}'".format(char=self.code[self.pos]))
 
 			if radix is None:
 				radix = 10 if self.decimal else 8
@@ -796,7 +797,7 @@ class Parser(object):
 			try:
 				return int(integer, radix)
 			except ValueError:
-				raise InvalidError("Expected integer, got '{}' (radix {})".format(integer, radix))
+				raise InvalidError("Expected integer, got '{int}' (radix {radix})".format(int=integer, radix=radix))
 
 
 	def needRaw(self):
@@ -831,7 +832,7 @@ class Parser(object):
 				self.pos += 1
 				t.noRollback()
 			else:
-				raise InvalidError("Expected string, got '{}'".format(self.code[self.pos]))
+				raise InvalidError("Expected string, got '{char}'".format(char=self.code[self.pos]))
 
 			string = ""
 
@@ -864,7 +865,7 @@ class Parser(object):
 					#		self.pos += 1
 					#		string += self.code[self.pos]
 					#	else:
-					#		raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{}'".format(self.code[self.pos]))
+					#		raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{escape}'".format(escape=self.code[self.pos]))
 					if self.code[self.pos] == punct:
 						# EOS
 						self.pos += 1
@@ -891,10 +892,10 @@ class Parser(object):
 			elif lit in ("OFF", "FALSE", "NO"):
 				return False
 			elif lit is not None:
-				raise InvalidError("Expected boolean, got '{}'".format(lit))
+				raise InvalidError("Expected boolean, got '{boolean}'".format(boolean=lit))
 			else:
 				try:
-					raise InvalidError("Expected boolean, got '{}'".format(self.code[self.pos]))
+					raise InvalidError("Expected boolean, got '{boolean}'".format(boolean=self.code[self.pos]))
 				except IndexError:
 					raise InvalidError("Expected boolean, got EOF")
 
