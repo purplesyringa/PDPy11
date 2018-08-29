@@ -514,7 +514,7 @@ class Compiler(object):
 	def err(self, coords, text):
 		raise CompilerError(
 			"{err}\n  at file {file} (line {line}, column {column})\n\n{text}".format(
-				err=err,
+				err=text,
 				file=coords["file"],
 				line=coords["line"], column=coords["column"],
 				text=coords["text"]
