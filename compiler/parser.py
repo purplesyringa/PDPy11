@@ -414,7 +414,25 @@ class Parser(object):
 				# @Rn, @(Rn)+, @-(Rn), @expression(Rn), @(Rn), @#expression or
 				# @expression
 
-				if self.needPunct("#", maybe=True):
+				expr = self.needExpression(maybe=True)
+				if expr is not None:
+					# @expression(Rn) or @expression
+					t.noRollback()
+
+					if self.needPunct("(", maybe=True):
+						# @expression(Rn)
+						t.noRollback()
+						reg = self.needRegister()
+						self.needPunct(")")
+						return (reg, "@N(Rn)"), expr
+					else:
+						# @expression
+						if self.syntax == "pdp11asm":
+							# PDP11Asm bug
+							return ("PC", "@N(Rn)"), expr
+						else:
+							return ("PC", "@N(Rn)"), Expression.asOffset(expr)
+				elif self.needPunct("#", maybe=True):
 					# @#expression = @(PC)+
 					t.noRollback()
 					expr = self.needExpression()
@@ -437,32 +455,26 @@ class Parser(object):
 					reg = self.needRegister()
 					self.needPunct(")")
 					return (reg, "@-(Rn)"), None
-
-				reg = self.needRegister(maybe=True)
-				if reg is not None:
-					# @Rn = (Rn)
-					return (reg, "(Rn)"), None
 				else:
-					# @expression(Rn) or @expression
+					# @Rn = (Rn)
+					reg = self.needRegister()
+					return (reg, "(Rn)"), None
+			else:
+				# Rn, -(Rn), expression(Rn), expression or #expression
+				expr = self.needExpression(maybe=True)
+				if expr is not None:
+					# expression(Rn) or expression
 					t.noRollback()
-					expr = self.needExpression()
-
 					if self.needPunct("(", maybe=True):
-						# @expression(Rn)
+						# expression(Rn)
 						t.noRollback()
 						reg = self.needRegister()
 						self.needPunct(")")
-						return (reg, "@N(Rn)"), expr
+						return (reg, "N(Rn)"), expr
 					else:
-						# @expression
-						if self.syntax == "pdp11asm":
-							# PDP11Asm bug
-							return ("PC", "@N(Rn)"), expr
-						else:
-							return ("PC", "@N(Rn)"), Expression.asOffset(expr)
-			else:
-				# Rn, -(Rn), expression(Rn), expression or #expression
-				if self.needPunct("-", maybe=True):
+						# expression = expression - ...(PC)
+						return ("PC", "N(Rn)"), Expression.asOffset(expr)
+				elif self.needPunct("-", maybe=True):
 					# -(Rn)
 					t.noRollback()
 					self.needPunct("(")
@@ -475,24 +487,9 @@ class Parser(object):
 					expr = self.needExpression()
 					return ("PC", "(Rn)+"), expr
 				else:
-					# Rn, expression(Rn) or expression
-					reg = self.needRegister(maybe=True)
-					if reg is not None:
-						# Rn
-						return (reg, "Rn"), None
-					else:
-						# expression(Rn) or expression
-						t.noRollback()
-						expr = self.needExpression()
-						if self.needPunct("(", maybe=True):
-							# expression(Rn)
-							t.noRollback()
-							reg = self.needRegister()
-							self.needPunct(")")
-							return (reg, "N(Rn)"), expr
-						else:
-							# expression = expression - ...(PC)
-							return ("PC", "N(Rn)"), Expression.asOffset(expr)
+					# Rn
+					reg = self.needRegister()
+					return (reg, "Rn"), None
 
 
 	def needRegister(self, maybe=False):
@@ -655,7 +652,7 @@ class Parser(object):
 
 			# Label
 			label = self.needLiteral(maybe=True)
-			if label is None:
+			if label is None or label in registers:
 				raise InvalidError("Expected integer, string, . (dot) or label")
 			return Expression(label, self.file)
 
