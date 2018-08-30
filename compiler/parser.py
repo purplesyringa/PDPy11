@@ -547,7 +547,7 @@ class Parser(object):
 					stack.append(self.needValue(isLabel=isLabel))
 
 					# Match closing bracket
-					while self.needPunct(")", maybe=True):
+					while "(" in op_stack and self.needPunct(")", maybe=True):
 						while len(op_stack) > 0:
 							top = op_stack.pop()
 							if top == "(":
