@@ -277,10 +277,5 @@ else:
 
 	if len(out_files) == 0 or isBin is None:
 		# No output file
-		output_stream = open(output, "wb")
-		if sys.version_info[0] == 2:
-			# Python 2
-			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
-		else:
-			# Python 3
-			output_stream.write(encodeBinRaw(isBin is None or isBin, compiler))
+		with open(output, "wb") as f:
+			f.write(encodeBinRaw(isBin is None or isBin, compiler.output, compiler.link_address))
