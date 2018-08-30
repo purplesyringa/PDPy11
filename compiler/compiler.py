@@ -100,7 +100,7 @@ class Compiler(object):
 		if os.path.isdir(file):
 			for subfile in self.file_list:
 				if subfile.startswith(file + os.sep):
-					self.addFile(subfile, relative_to=self.project)
+					self.addFile(subfile, relative_to=self.project + os.sep + "__none__")
 			return
 
 		with open(file) as f:
@@ -112,14 +112,14 @@ class Compiler(object):
 			print(e)
 			raise SystemExit(1)
 
-	def resolve(self, from_, file):
+	def resolve(self, file, from_):
 		# Resolve file path
 		if file.startswith("/") or file[1:3] == ":\\":
 			# Absolute
 			return file
 		else:
 			# Relative
-			return os.path.join(os.path.dirname(from_), file)
+			return os.path.abspath(os.path.join(from_, file))
 
 	def link(self):
 		try:
@@ -521,15 +521,6 @@ class Compiler(object):
 			)
 		)
 
-
-	def resolve(self, file, relative_to):
-		# Resolve file path
-		if file.startswith("/") or file[1:3] == ":\\":
-			# Absolute
-			return file
-		else:
-			# Relative
-			return os.path.join(relative_to, file)
 
 	def defineLabel(self, file_id, name, value, coords):
 		extern = False
