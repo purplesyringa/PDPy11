@@ -18,6 +18,9 @@ class Expression(object):
 			self.file_id = file_id
 
 		def __call__(self, compiler):
+			if isinstance(self.s, int):
+				return self.s
+
 			def label():
 				try:
 					return compiler.labels[self.s]
@@ -38,5 +41,8 @@ class Expression(object):
 
 	@staticmethod
 	def asOffset(expr):
+		if isinstance(expr, int):
+			expr = Deferred(Expression.Get(expr, "???"), int)
+
 		expr.isOffset = True
 		return expr
