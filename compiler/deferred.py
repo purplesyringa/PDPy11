@@ -170,7 +170,15 @@ class Deferred(object):
 		return result
 
 	def addPendingMath(self, optext, op, other, reverse=False):
+		self.cached = False
+
 		if self.isA(int):
+			if not reverse and optext == "-":
+				# Reverse -
+				optext = "+"
+				op = operator.add
+				other = -other
+
 			if len(self.pending_math) > 0:
 				last_optext = self.pending_math[-1][0]
 				last_reverse = self.pending_math[-1][3]
@@ -195,12 +203,6 @@ class Deferred(object):
 						# Optimizable by ^
 						self.pending_math[-1][2] &= other
 						return
-
-			if not reverse and optext == "-":
-				# Reverse -
-				optext = "+"
-				op = operator.add
-				other = -other
 
 		self.pending_math.append([optext, op, other, reverse])
 
