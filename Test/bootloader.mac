@@ -1,0 +1,114 @@
+		.LINK 1000
+		.INCLUDE "constants.mac"
+
+		CATALOGUE              = 50000
+		RWBLK                  = 160004
+
+BOOTLOADER:
+		NOP
+		MOV #330,@#177664 ; set compact screen mode
+
+		; Get partition ID
+		SUB #2, R0
+
+		; Partition table address
+		MOV #176766, R1
+		ASL R0
+		ASL R0
+		SUB R0, R1
+		; (R1) contains partition start now
+		BR 0
+
+		.WORD 0 ; Total files           ; offset 30
+		.WORD 0 ; Total blocks          ; offset 32
+
+0:		MOV (R1), R1
+		MOV R1, R2
+		BIC #177760, R2 ; Head
+		BIC R2, R1
+		CLC
+		ROR R1
+		ASR R1
+		ASR R1
+		ASR R1 ; Cylinder
+
+		; Save partition head & cylinder
+		MOV R2, @#OLD_LDHEAD
+		MOV R1, @#OLD_LDCYL
+
+		; Load file list to 14000
+		MOV @#1000+470, R1 ; length (blocks)
+		SWAB R1
+		; Now length in words to read from 0th block
+
+		CLR R0 ; to read 0th block
+		MOV #CATALOGUE, R2 ; address
+		CALL READBLOCK
+
+		; Find GoodApple.EXE
+		MOV #CATALOGUE+502, R0 ; First filename offset
+
+1:		; Compare strings (R0) with FILENAME
+		MOV R0, R1
+		MOV #FILENAME, R2
+ 		MOV #15, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR LOADDEMO
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+
+SADMAC:	MOV #40000,R1	; clear screen
+5:		CLRB 37777(R1)
+		SOB R1,5
+		MOV #1330,@#177664 ; set default screen mode
+
+		MOV #ICON,R1	; image
+		MOV	#56242,R2	; screen address
+0:		ADD #74,R2		; 100 - image width in words
+
+1:		MOVB (R1)+,R4	; byte to convert
+4:		BEQ 4			; if icon end - infinity loop
+
+2:		CLR	R5			; word to draw
+		MOV #8.,R0		; how many bits process
+3:		ROR R4
+		ROR	R5
+		ASR R5
+		SOB R0,3
+		MOV R5,(R2)+	; draw word
+
+		INC PC			; repeat code twice
+		BR 1
+		BR 0			; next screen line
+
+LOADDEMO:
+		MOV 20(R0), R1 ; length (blocks)
+		SWAB R1
+		; Now length in words
+
+		MOV 16(R0), R0 ; block number
+
+		MOV #4000, R2 ; address
+		CALL READBLOCK
+
+		JMP @#4000
+
+READBLOCK:
+		CALL @#RWBLK	; ask BIOS to load block from HDD
+		TSTB 57(R3)     ; any error?
+		BNE SADMAC
+		RET
+
+ICON:	insert_file "sad_mac_16x25.raw"
+		.BYTE 0
+FILENAME:
+		.ASCII "GoodApple.EXE"
+		.EVEN
+
+		make_raw

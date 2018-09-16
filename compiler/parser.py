@@ -1,7 +1,7 @@
 from __future__ import print_function
 import os
 from . import commands
-from .expression import Expression
+from .expression import Expression, StaticAlloc
 import operator
 
 
@@ -650,11 +650,20 @@ class Parser(object):
 			if self.needPunct(".", maybe=True):
 				return self.mark()
 
+			# STATIC_ALLOC[_BYTE]
+			literal = self.needLiteral(maybe=True)
+			if literal == "STATIC_ALLOC" or literal == "STATIC_ALLOC_BYTE":
+				t.noRollback()
+				with Transaction(self, maybe=False, stage=literal):
+					self.needPunct("(")
+					length = self.needExpression()
+					self.needPunct(")")
+					return StaticAlloc(length, literal == "STATIC_ALLOC_BYTE")
+
 			# Label
-			label = self.needLiteral(maybe=True)
-			if label is None or label in registers:
-				raise InvalidError("Expected integer, string, . (dot) or label")
-			return Expression(label, self.file)
+			if literal is None or literal in registers:
+				raise InvalidError("Expected integer, string, . (dot), label or STATIC_ALLOC[_BYTE]")
+			return Expression(literal, self.file)
 
 
 

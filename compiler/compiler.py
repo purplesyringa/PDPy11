@@ -25,6 +25,7 @@ class Compiler(object):
 		self.writes = []
 		self.extern_labels = False
 		self.included_before = set()
+		self.last_static_alloc = Expression("MEMORY", "STATIC_ALLOC")
 
 	def define(self, name, value):
 		value_text = "\"{str}\"".format(str=value) if isinstance(value, str) else value
@@ -563,4 +564,17 @@ class Compiler(object):
 					"label defined in {file_id}").format(name=name, file_id=file_id)
 				)
 
-			self.labels["{file_id}:{name}".format(file_id=file_id, name=name)] = value
+			# Check that such local label is not defined in this file.
+			local_name = "{file_id}:{name}".format(file_id=file_id, name=name)
+			if local_name in self.labels:
+				self.err(
+					coords,
+					"Redefinition of local label {name}".format(name=name)
+				)
+
+			self.labels[local_name] = value
+
+	def static_alloc(self, byte_length):
+		address = self.last_static_alloc
+		self.last_static_alloc = self.last_static_alloc + byte_length
+		return address

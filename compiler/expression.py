@@ -46,3 +46,30 @@ class Expression(object):
 
 		expr.isOffset = True
 		return expr
+
+
+class StaticAlloc(object):
+	def __new__(cls, length, is_byte):
+		return Deferred(cls.Get(length, is_byte), int)
+
+	class Get(object):
+		def __init__(self, length, is_byte):
+			self.length = length
+			if is_byte:
+				self.byte_length = length + length % 2
+			else:
+				self.byte_length = length * 2
+			self.is_byte = is_byte
+
+			self.cache = None
+
+		def __call__(self, compiler):
+			if self.cache is None:
+				self.cache = compiler.static_alloc(self.byte_length)
+			return self.cache
+
+		def deferredRepr(self):
+			if self.is_byte:
+				return "STATIC_ALLOC_BYTE({length!r})".format(length=self.length)
+			else:
+				return "STATIC_ALLOC({length!r})".format(length=self.length)

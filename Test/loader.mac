@@ -1,0 +1,273 @@
+		LOADER_COLOR = 3
+		LOADER_Y = 190.
+		APPLE_Y = 108.
+		APPLE_X = 34
+		LOADER_PALETTE = 2
+
+
+		CLR @#CURCRCFILE
+
+		; Clear screen
+		MOV #40000, R0
+CLEAR:	CLRB 37777(R0)
+		SOB R0, CLEAR
+
+		MOV #1330, @#REG_SCR_SCRL ; set default screen mode
+
+		; Set STOP handler
+		TST @#MKDOS
+		BEQ 1
+		; If running on MKDOS, don't disable STOP
+		MOV #EXIT, @#4
+		BR 2
+1:		; Boot
+		MOV #BAD_CRC, @#4
+
+
+2:		; Set palette
+		MOV #LOADER_PALETTE * 400 + 40000, @#REG_SCR_PAGE
+
+
+		MOV #APPLE_Y * 100 + APPLE_X + 40000, R0
+		MOV #LSTART, R1
+		MOV #LEND - LSTART, R2
+		CALL @#SPRITE
+
+
+		; Seek to 48 KiB (96th block)
+		CLR R4
+		MOV #CONSTANTS + 40, R5
+
+		; Draw loader
+		MOV @#LOADER_WIDTH, R3
+		MOV #LOADER_Y * 100 + 40 + 40000, R0
+		SUB R3, R0
+
+RP:		CLR R1
+
+		MOV #10, R2
+A:		; Add 2 more bits
+		ASL R1
+		ASL R1
+		BIS #LOADER_COLOR, R1
+
+		; Save to screen
+		MOV R1, (R0)
+		MOV R1, 100(R0)
+
+		MOV R0, -(SP)
+		MOV @#CRC_COUNT, R0
+1:		CALL @#CRCTST
+		SOB R0, 1
+		MOV (SP)+, R0
+
+		SOB R2, A
+
+		ADD #2, R0
+		SOB R3, RP
+
+
+		; Clear screen
+		MOV #40000, R0
+CLEAR2:	CLRB 37777(R0)
+		SOB R0, CLEAR2
+
+
+		MOV #100000, R0
+1:		NOP
+		NOP
+		NOP
+		SOB R0, 1
+
+
+		; Fix LD heads/cylinders
+
+		; If it's already first volume, skip
+		TST @#IS_2ND_VOLUME
+		BEQ 2
+		CLR @#IS_2ND_VOLUME
+		; Swap LD head
+		MOV @#LDHEAD, R1
+		MOV @#LD2HEAD, @#LDHEAD
+		MOV R1, @#LD2HEAD
+		; Swap LD cylinder
+		MOV @#LDCYL, R1
+		MOV @#LD2CYL, @#LDCYL
+		MOV R1, @#LD2CYL
+
+2:		MOV #47400, @#REG_SCR_PAGE
+		RET
+
+
+CURCRCFILE:
+		.WORD 0
+
+
+
+CRCTST:	; CRC current sector:
+		;   R4 + @#DATA0_BLOCK if @#CURCRCFILE == 0,
+		;   R4 + @#DATA1_BLOCK if @#CURCRCFILE == 1,
+		;   R4 + @#OVL0_BLOCK  if @#CURCRCFILE == 2,
+		;   R4 + @#OVL1_BLOCK  if @#CURCRCFILE == 3.
+		; If R4 becomes more than @#[DATA0/DATA1/OVL0/OVL1]_SECTORS,
+		; increment @#CURCRCFILE and subtract @#..._SECTORS from R4.
+
+		MOV R0, -(SP)
+		MOV R1, -(SP)
+		MOV R2, -(SP)
+		MOV R3, -(SP)
+
+		; R2 -- block
+
+		CMP @#CURCRCFILE, #0
+		BEQ 10
+		CMP @#CURCRCFILE, #1
+		BEQ 11
+		CMP @#CURCRCFILE, #2
+		BEQ 12
+		BR 13
+
+10:		MOV #0, @#CURCRCFILE
+		MOV @#DATA0_BLOCK, R2
+		CMP R4, @#DATA0_SECTORS
+		BLO 14
+		; Next
+		SUB @#DATA0_SECTORS, R4
+11:		MOV #1, @#CURCRCFILE
+		MOV @#DATA1_BLOCK, R2
+		CMP R4, @#DATA1_SECTORS
+		BLO 14
+		; Next
+		SUB @#DATA1_SECTORS, R4
+12:		MOV #2, @#CURCRCFILE
+		MOV @#OVL0_BLOCK, R2
+		CMP R4, @#OVL0_SECTORS
+		BLO 14
+		; Next
+		SUB @#OVL0_SECTORS, R4
+13:		MOV #3, @#CURCRCFILE
+		MOV @#OVL1_BLOCK, R2
+
+14:		; R4 -- block relative to R2; < sectors in file
+		; that starts at R2.
+		ADD R4, R2
+		; R2 contains block ID now.
+
+
+		CMP @#CURCRCFILE, #2
+		BLO 15
+
+		; If it's already second volume, skip
+		TST @#IS_2ND_VOLUME
+		BNE 5
+		MOV #1, @#IS_2ND_VOLUME
+		; Swap LD head
+		MOV @#LDHEAD, R1
+		MOV @#LD2HEAD, @#LDHEAD
+		MOV R1, @#LD2HEAD
+		; Swap LD cylinder
+		MOV @#LDCYL, R1
+		MOV @#LD2CYL, @#LDCYL
+		MOV R1, @#LD2CYL
+		BR 5
+
+15:		; If it's already first volume, skip
+		TST @#IS_2ND_VOLUME
+		BEQ 5
+		CLR @#IS_2ND_VOLUME
+		; Swap LD head
+		MOV @#LDHEAD, R1
+		MOV @#LD2HEAD, @#LDHEAD
+		MOV R1, @#LD2HEAD
+		; Swap LD cylinder
+		MOV @#LDCYL, R1
+		MOV @#LD2CYL, @#LDCYL
+		MOV R1, @#LD2CYL
+
+5:		MOV R4, -(SP)
+		MOV R2, R0 ; block
+		MOV #1, R4
+		MOV @#SEEK, R2
+		CALL (R2)
+		MOV (SP)+, R4
+
+		; Wait for sector
+1:		BIT #STATUS_DRQ, @#REG_CMD
+		BNE 1
+
+		CLR R3
+		; Read
+		MOV #256., R0
+2:		ADD @#REG_DATA, R3
+		SOB R0, 2
+
+		CMP R3, (R5)+
+		BEQ 3
+		CALL @#BAD_CRC
+3:
+
+
+		MOV (SP)+, R3
+		MOV (SP)+, R2
+		MOV (SP)+, R1
+		MOV (SP)+, R0
+
+		ADD @#CRC_STEP, R4
+		RET
+
+
+
+BAD_CRC:
+		; Clear screen
+		MOV #40000, R0
+1:		CLRB 37777(R0)
+		SOB R0, 1
+
+		; Set white color
+		MOV #15. * 400 + 40000, @#REG_SCR_PAGE
+
+		; Draw sad Macintosh
+		MOV #APPLE_Y * 100 + APPLE_X + 40000, R0
+		MOV #SSTART, R1
+		MOV #SEND - SSTART, R2
+		CALL @#SPRITE
+
+		; Disable STOP
+		MOV #STOP, @#4
+		BR .
+
+
+SPRITE:	; R0 -- screen address
+		; R1 -- start
+		; R2 -- byte length
+		ASR R2
+		ASR R2
+		ASR R2
+1:		MOV (R1)+, (R0)+
+		MOV (R1)+, (R0)+
+		MOV (R1)+, (R0)+
+		MOV (R1)+, (R0)+
+		ADD #100 - 10, R0
+		SOB R2, 1
+		RET
+
+
+STOP:	RTI
+
+EXIT:	; Flush HDD buffer
+1:		BIT #STATUS_BSY, @#REG_CMD
+		BEQ 1
+		BIT #STATUS_DRQ, @#REG_CMD
+		BNE 3
+		MOV #256., R0
+2:		TST @#REG_DATA
+		SOB R0, 2
+		BR 1
+
+3:		JMP @#4002
+
+LSTART:	insert_file "logos/apple_logo_32x39_palette02.raw"
+LEND:
+
+SSTART:	insert_file "sad_mac_32x37.raw"
+SEND:

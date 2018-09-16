@@ -1,0 +1,436 @@
+		.LINK 4000
+		.INCLUDE "constants.mac"
+
+		; HDD registers
+		HD_HEA         = 176774
+		HD_SEC         = 176772
+		RWBLK          = 160004
+		; sector + head * SECTOR_CNT + (cyl_low << 8 | cyl_high) * SECTOR_CNT * HEAD_CNT
+
+		; Constants & system registers
+		CATALOGUE      = 50000
+		ADDRESS        = 140000
+		SCROLL         = 177664
+		MKDOS_VERS     = 120004
+		MKDOS_DEVTEK   = 120012 ; current partition id
+
+		; Constants
+		IS_MKDOS               = 2376
+
+
+		BR SBL          ; 4000
+		JMP MKDOS_EXIT  ; 4002 -- entry point
+
+SBL:	CLR @#IS_MKDOS
+
+		CMP R3, #2000
+		BEQ VOLUME2
+
+		; It's MKDOS
+		INC @#IS_MKDOS
+
+		MOV #2000, R3
+		; INITF -- Initialize working space
+		CALL @#160010
+		; TODO: Check for errors
+
+		MOV @#MKDOS_DEVTEK, R0 ; current partition number
+		MOVB R0, 34(R3) ; UNIT
+		; Get partition ID
+		SUB #2, R0
+
+		; Partition table address
+		MOV #176766, R1
+		ASL R0
+		ASL R0
+		SUB R0, R1
+		; (R1) contains partition start now
+		MOV (R1), R1
+		MOV R1, R2
+		BIC #177760, R2 ; Head
+		BIC R2, R1
+		CLC
+		ROR R1
+		ASR R1
+		ASR R1
+		ASR R1 ; Cylinder
+
+		; Save partition head & cylinder
+		MOV R2, @#OLD_LDHEAD
+		MOV R1, @#OLD_LDCYL
+
+
+VOLUME2:
+		; Same for next volume
+		MOVB 34(R3), R0 ; UNIT
+		; Get partition ID
+		SUB #2, R0
+		; Next volume
+		INC R0
+
+		; Partition table address
+		MOV #176766, R1
+		ASL R0
+		ASL R0
+		SUB R0, R1
+		; (R1) contains partition start now
+		MOV (R1), R1
+		MOV R1, R2
+		BIC #177760, R2 ; Head
+		BIC R2, R1
+		CLC
+		ROR R1
+		ASR R1
+		ASR R1
+		ASR R1 ; Cylinder
+
+		; Save partition head & cylinder
+		MOV R2, @#OLD_LD2HEAD
+		MOV R1, @#OLD_LD2CYL
+
+
+FINDDATA0:
+		; Load file list to CATALOGUE
+		MOV #6, R1 ; length (blocks) -- HARDCODED
+		SWAB R1
+		; Now length in words to read from 0th block
+
+		MOV #330, @#SCROLL ; set compact screen mode
+		CLR R0 ; to read 0th block
+		MOV #CATALOGUE, R2 ; address
+		MOV #0 * 400 + 40000, @#REG_SCR_PAGE
+		CALL READBLOCK
+
+		; Find GoodApple0.DAT
+		MOV #CATALOGUE+502, R0 ; First filename
+
+1:		; Compare strings R0 and DATA0_FILENAME
+		MOV R0, R1
+		MOV #DATA0_FILENAME, R2
+		MOV #16, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR 4
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+		MOV #1 * 400 + 40000, @#REG_SCR_PAGE
+		JMP SADMAC
+
+
+
+4:		MOV 16(R0), @#OLD_DATA0_BLOCK ; block
+
+
+FINDDATA1:
+		; Find GoodApple1.DAT
+		MOV #CATALOGUE+502, R0 ; First filename
+
+1:		; Compare strings R0 and DATA1_FILENAME
+		MOV R0, R1
+		MOV #DATA1_FILENAME, R2
+		MOV #16, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR 4
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+		MOV #2 * 400 + 40000, @#REG_SCR_PAGE
+		JMP SADMAC
+
+
+
+4:		MOV 16(R0), @#OLD_DATA1_BLOCK ; block
+
+
+LOADCREDITS:
+		; Find CREDITS
+		MOV #CATALOGUE+502, R0 ; First filename
+
+1:		; Compare strings R0 and CREDITS_FILENAME
+		MOV R0, R1
+		MOV #CREDITS_FILENAME, R2
+		MOV #16, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR 4
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+		MOV #3 * 400 + 40000, @#REG_SCR_PAGE
+		JMP SADMAC
+
+4:		MOV 16(R0), @#OLD_CREDITS_BLOCK ; block
+
+
+FINDOVL0:
+		; Load 2nd volume file list to CATALOGUE
+
+		INCB 34(R3) ; Next volume / UNIT
+		MOV #6, R1 ; length (blocks) -- HARDCODED
+		SWAB R1
+		; Now length in words to read from 0th block
+
+		MOV #330, @#SCROLL ; set compact screen mode
+		CLR R0 ; to read 0th block
+		MOV #CATALOGUE, R2 ; address
+		MOV #5 * 400 + 40000, @#REG_SCR_PAGE
+		CALL READBLOCK
+
+		; Find GoodApple0.OVL
+		MOV #CATALOGUE+502, R0 ; First filename
+
+1:		; Compare strings R0 and OVL0_FILENAME
+		MOV R0, R1
+		MOV #OVL0_FILENAME, R2
+		MOV #16, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR 4
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+		MOV #6 * 400 + 40000, @#REG_SCR_PAGE
+		JMP SADMAC
+
+
+
+4:		MOV 16(R0), @#OLD_OVL0_BLOCK ; block
+
+
+FINDOVL1:
+		; Find GoodApple1.OVL
+		MOV #CATALOGUE+502, R0 ; First filename
+
+1:		; Compare strings R0 and OVL1_FILENAME
+		MOV R0, R1
+		MOV #OVL1_FILENAME, R2
+		MOV #16, R4
+3:		CMPB (R1)+, (R2)+
+		BNE 2
+		SOB R4, 3
+
+		BR 4
+
+2:		; Check next file
+		ADD #30, R0
+		BPL 1
+		; error, file not found!
+		MOV #7 * 400 + 40000, @#REG_SCR_PAGE
+		JMP SADMAC
+
+
+
+4:		MOV 16(R0), @#OLD_OVL1_BLOCK ; block
+
+
+BOOTLOADER:
+		; Some controllers report wrong sector/head count, so we'll believe
+		; SMK firmware and use HD$ registers.
+
+		MOV @#HD_HEA, R1
+		MOV @#HD_SEC, R2
+
+		; Change page
+		MOV #SMKPAGE, R0
+		MOV #6, (R0)
+		MOV #OZU10, (R0)
+		MOV #0, (R0)
+
+		MOV R1, @#TOTAL_HEADS
+		MOV R2, @#TOTAL_SECTORS
+
+		MOV @#OLD_LDHEAD, @#LDHEAD
+		MOV @#OLD_LDCYL, @#LDCYL
+		MOV @#OLD_LD2HEAD, @#LD2HEAD
+		MOV @#OLD_LD2CYL, @#LD2CYL
+		MOV @#OLD_CREDITS_BLOCK, @#CREDITS_BLOCK
+		MOV @#OLD_DATA0_BLOCK, @#DATA0_BLOCK
+		MOV @#OLD_OVL0_BLOCK, @#OVL0_BLOCK
+		MOV @#OLD_DATA1_BLOCK, @#DATA1_BLOCK
+		MOV @#OLD_OVL1_BLOCK, @#OVL1_BLOCK
+		MOV @#IS_MKDOS, @#MKDOS
+
+
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; DISK ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+		; Copy constants
+		MOV #SBL_CONSTANTS, R0
+		MOV #400, R1
+		MOV #CONSTANTS, R2
+2:		MOV (R0)+, (R2)+
+		SOB R1, 2
+
+
+		; Load main code
+		MOV #DEMO, R0
+		MOV #(DEMOEND - DEMO) / 2, R1
+		MOV #ADDRESS, R2
+1:		MOV (R0)+, (R2)+
+		SOB R1, 1
+
+		MOV #ORIG_SEEK, R0
+		CLR @#IS_2ND_VOLUME
+		JMP @#ADDRESS
+
+
+
+
+ORIG_SEEK:
+		; Seek to block R0, relative to logical drive
+		;
+		; If R4 is 0, read till the end of current head
+		; Otherwise, read exactly R4 sectors
+		;
+		; In both cases, R1 will contain current head,
+		; R2 -- low cylinder, R3 -- high cylinder, R4
+		; won't be changed.
+		; If R4 is 0, R0 will contain sectors left to read.
+		; Otherwise, R0 will contain current sector.
+
+		; R0, R1 = R0 % TOTAL_SECTORS, R0 // TOTAL_SECTORS
+		MOV #-1, R1
+1:		INC R1
+		SUB @#TOTAL_SECTORS, R0
+		BHIS 1
+		ADD @#TOTAL_SECTORS, R0
+
+		; Move to LD head
+		ADD @#LDHEAD, R1
+
+		; R1, R2 = R1 % TOTAL_HEADS, R1 // TOTAL_HEADS
+		MOV #-1, R2
+2:		INC R2
+		SUB @#TOTAL_HEADS, R1
+		BHIS 2
+		ADD @#TOTAL_HEADS, R1
+
+		; Move to LD cylinder
+		ADD @#LDCYL, R2
+
+		; R2, R3 = R2 & 0xFF, R2 >> 8
+		MOV R2, R3
+		BIC #177400, R2
+		SWAB R3
+		BIC #177400, R3
+
+		INC R0
+		COM R0
+		COM R1
+		COM R2
+		COM R3
+
+		MOV R3, @#REG_CYL_HIGH ; cyl high
+		MOV R2, @#REG_CYL_LOW ; cyl low
+		MOV R1, @#REG_HEAD ; head
+		MOV R0, @#REG_SECTOR ; sector
+
+		COM R1
+		COM R2
+		COM R3
+
+		TST R4
+		BEQ 5
+		; Read exactly R4 sectors
+		COM R4
+		MOV R4, @#REG_SECTOR_CNT ; sectors to read
+		COM R4
+		BR 6
+5:		; Read till the end of current head
+		MOV R0, -(SP)
+		COM (SP)
+		MOV @#TOTAL_SECTORS, R0
+		INC R0
+		SUB (SP), R0
+		COM R0
+		MOV R0, @#REG_SECTOR_CNT ; COM TOTAL_SECTORS + 1 - (COM R0)
+		TST (SP)+
+
+6:		MOV #337, @#REG_CMD
+
+		COM R0
+		RET
+
+
+READBLOCK:
+		CALL @#RWBLK	; ask BIOS to load block from HDD
+		TSTB 57(R3)     ; any error?
+		BNE SADMAC
+		RET
+
+SADMAC:	MOV #40000,R1	; clear screen
+5:		CLRB 37777(R1)
+		SOB R1,5
+		MOV #1330,@#177664 ; set default screen mode
+
+		MOV #ICON,R1	; image
+		MOV	#56242,R2	; screen address
+0:		ADD #74,R2		; 100 - image width in words
+
+1:		MOVB (R1)+,R4	; byte to convert
+4:		BEQ 4			; if icon end - infinity loop
+
+2:		CLR	R5			; word to draw
+		MOV #8.,R0		; how many bits process
+3:		ROR R4
+		ROR	R5
+		CLC				; change color
+		ROR R5
+		SOB R0,3
+		MOV R5,(R2)+	; draw word
+
+		INC PC			; repeat code twice
+		BR 1
+		BR 0			; next screen line
+
+
+MKDOS_EXIT:
+		MOV #0, @#177712 ; stop CPU timer
+		BIS #40000, @#REG_SCR_PAGE ; stop VSync timer
+
+		; Change page to MKDOS
+		MOV #6, @#SMKPAGE
+		MOV #140, @#SMKPAGE
+		MOV #0, @#SMKPAGE
+
+		MOV #16000, @#SEL1
+
+		JMP @#100000 ; MKDOS
+
+
+CREDITS_FILENAME:
+		.ASCII "CREDITS.EXE   "
+DATA0_FILENAME:
+		.ASCII "GoodApple0.DAT"
+DATA1_FILENAME:
+		.ASCII "GoodApple1.DAT"
+OVL0_FILENAME:
+		.ASCII "GoodApple0.OVL"
+OVL1_FILENAME:
+		.ASCII "GoodApple1.OVL"
+		.EVEN
+
+ICON:	insert_file "sad_mac_16x25.raw"
+
+DEMO:	.INCLUDE "main.mac"
+DEMOEND:
+
+SBL_CONSTANTS:
+		make_raw
