@@ -10,6 +10,18 @@ License: MIT
 - No Python modules required
 - Any platform (Windows, Mac OS, Linux)
 
+## Installation
+
+### Via git
+
+```
+$ git clone https://github.com/imachug/pdpy11
+```
+
+### Via GitHub UI
+
+Press green `Clone or download` button (it's above file list), press `Download ZIP`, extract the archive and rename the directory `PDPy11-master` to `pdpy11` (lowercase!)
+
 ## Docs
 
 You can check the full docs as [docs.md](docs.md).
@@ -24,7 +36,9 @@ You can check the full docs as [docs.md](docs.md).
 MOV #2, R1
 ```
 
-2. Run `python -m pdpy11 path-to/test.mac`
+2. `cd` to the directory that contains `pdpy11` (e.g. if you used `git clone`, don't run `cd pdpy11` afterwards)
+
+3. Run `python -m pdpy11 path-to/test.mac`
 
 This will generate `test.bin` file with the following content:
 
