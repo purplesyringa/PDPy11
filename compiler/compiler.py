@@ -101,7 +101,7 @@ class Compiler(object):
 		if os.path.isdir(file):
 			for subfile in self.file_list:
 				if subfile.startswith(file + os.sep):
-					self.addFile(subfile, relative_to=self.project + os.sep + "__none__")
+					self.addFile(subfile, relative_to=self.project)
 			return
 
 		with open(file) as f:
@@ -113,14 +113,14 @@ class Compiler(object):
 			print(e)
 			raise SystemExit(1)
 
-	def resolve(self, file, from_):
+	def resolve(self, from_, file):
 		# Resolve file path
 		if file.startswith("/") or file[1:3] == ":\\":
 			# Absolute
 			return file
 		else:
 			# Relative
-			return os.path.abspath(os.path.join(from_, file))
+			return os.path.join(os.path.dirname(from_), file)
 
 	def link(self):
 		try:
@@ -247,9 +247,11 @@ class Compiler(object):
 				)
 			)
 		elif command == ".ASCII":
+			def stringToCharlist(string):
+				return [ord(char) for char in string]
 			self.writeBytes(
 				Deferred(arg, str)
-					.then(lambda string: [ord(char) for char in string], list)
+					.then(stringToCharlist, list)
 			)
 		elif command == ".MAKE_RAW":
 			if parser.file == self.include_root:
@@ -342,18 +344,21 @@ class Compiler(object):
 					coords
 				)
 			elif command in commands.jmp_commands:
+				def unalignedBranch(offset):
+					if offset % 2 == 1:
+						self.err(coords, "Unaligned branch: {len} bytes".format(len=util.octal(offset)))
+					else:
+						return offset // 2
+				def farBranch(offset):
+					if offset < -128 or offset > 127:
+						self.err(coords, "Too far branch: {len} words".format(len=util.octal(offset)))
+					else:
+						return offset
+
 				offset = arg[0] - self.linkPC - 2
 				offset = (Deferred(offset, int)
-					.then(lambda offset: (
-						self.err(coords, "Unaligned branch: {len} bytes".format(len=util.octal(offset)))
-						if offset % 2 == 1
-						else offset // 2
-					), int)
-					.then(lambda offset: (
-						self.err(coords, "Too far branch: {len} words".format(len=util.octal(offset)))
-						if offset < -128 or offset > 127
-						else offset
-					), int)
+					.then(unalignedBranch, int)
+					.then(farBranch, int)
 				)
 
 				self.writeWord(
@@ -364,17 +369,20 @@ class Compiler(object):
 			elif command in commands.imm_arg_commands:
 				max_imm_value = commands.imm_arg_commands[command][1]
 
-				value = (Deferred(arg[0], int)
-					.then(lambda value: (
+				def bigImmediateValue(value):
+					if value > max_imm_value:
 						self.err(coords, "Too big immediate value: {value}".format(value=util.octal(value)))
-						if value > max_imm_value
-						else value
-					), int)
-					.then(lambda value: (
+					else:
+						return value
+				def negativeImmediateValue(value):
+					if value < 0:
 						self.err(coords, "Negative immediate value: {value}".format(value=util.octal(value)))
-						if value < 0
-						else value
-					), int)
+					else:
+						return value
+
+				value = (Deferred(arg[0], int)
+					.then(bigImmediateValue, int)
+					.then(negativeImmediateValue, int)
 				)
 
 				self.writeWord(commands.imm_arg_commands[command][0] | (value // 2), coords)
@@ -398,18 +406,21 @@ class Compiler(object):
 					coords
 				)
 			elif command == "SOB":
+				def unalignedSOB(offset):
+					if offset % 2 == 1:
+						self.err(coords, "Unaligned SOB: {len} bytes".format(len=util.octal(offset)))
+					else:
+						return offset // 2
+				def farSOB(offset):
+					if offset < 0 or offset > 63:
+						self.err(coords, "Too far SOB: {len} words".format(len=util.octal(offset)))
+					else:
+						return offset
+
 				offset = self.linkPC + 2 - arg[1]
 				offset = (Deferred(offset, int)
-					.then(lambda offset: (
-						self.err(coords, "Unaligned SOB: {len} bytes".format(len=util.octal(offset)))
-						if offset % 2 == 1
-						else offset // 2
-					), int)
-					.then(lambda offset: (
-						self.err(coords, "Too far SOB: {len} words".format(len=util.octal(offset)))
-						if offset < 0 or offset > 63
-						else offset
-					), int)
+					.then(unalignedSOB, int)
+					.then(farSOB, int)
 				)
 
 				self.writeWord(
@@ -448,34 +459,34 @@ class Compiler(object):
 
 
 	def writeByte(self, byte, coords=None):
-		byte = (Deferred(byte, int)
-			.then(lambda byte: (
+		def valueToByte(byte):
+			if byte >= 256:
 				self.err(coords, "Byte {byte} is too big".format(byte=util.octal(byte)))
-				if byte >= 256 else byte
-			), int)
-			.then(lambda byte: (
+			elif byte < -256:
 				self.err(coords, "Byte {byte} is too small".format(byte=util.octal(byte)))
-				if byte < -256 else byte
-			), int)
-			.then(lambda byte: byte + 256 if byte < 0 else byte, int)
-		)
+			elif byte < 0:
+				return byte + 256
+			else:
+				return byte
+
+		byte = Deferred(byte, int).then(valueToByte, int)
 
 		self.writes.append((self.PC, byte))
 		self.PC = self.PC + 1
 		self.linkPC = self.linkPC + 1
 
 	def writeWord(self, word, coords=None):
-		word = (Deferred(word, int)
-			.then(lambda word: (
+		def valueToWord(word):
+			if word >= 65536:
 				self.err(coords, "Word {word} is too big".format(word=util.octal(word)))
-				if word >= 65536 else word
-			), int)
-			.then(lambda word: (
+			elif word < -65536:
 				self.err(coords, "Word {word} is too small".format(word=util.octal(word)))
-				if word < -65536 else word
-			), int)
-			.then(lambda word: word + 65536 if word < 0 else word, int)
-		)
+			elif word < 0:
+				return word + 65536
+			else:
+				return word
+
+		word = Deferred(word, int).then(valueToWord, int)
 
 		self.writes.append((self.PC, word & 0xFF))
 		self.writes.append((self.PC + 1, word >> 8))
@@ -541,8 +552,8 @@ class Compiler(object):
 				if label.endswith(":{name}".format(name=name)):
 					self.err(
 						coords,
-						("Redefinition of global label {} with local " +
-						"label defined in {file_id}").format(name, file_id=label.rsplit(":", 1)[0])
+						("Redefinition of global label {name} with local " +
+						"label defined in {file_id}").format(name=name, file_id=label.rsplit(":", 1)[0])
 					)
 
 			# Check that there is no file where such global label is
