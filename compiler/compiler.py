@@ -113,14 +113,14 @@ class Compiler(object):
 			print(e)
 			raise SystemExit(1)
 
-	def resolve(self, from_, file):
+	def resolve(self, file, base):
 		# Resolve file path
 		if file.startswith("/") or file[1:3] == ":\\":
 			# Absolute
 			return file
 		else:
 			# Relative
-			return os.path.join(os.path.dirname(from_), file)
+			return os.path.join(base, file)
 
 	def link(self):
 		try:
