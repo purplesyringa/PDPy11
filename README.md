@@ -26,6 +26,8 @@ Press green `Clone or download` button (it's above file list), press `Download Z
 
 You can check the full docs as [docs.md](docs.md).
 
+Read how to use Sublime build system [here](sublime/README.md).
+
 ## TL;DR aka tutorial
 
 ### Compiling single file to .bin

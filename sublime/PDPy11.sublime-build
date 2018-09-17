@@ -1,0 +1,14 @@
+{
+	"file_patterns": ["*.mac", "*.asm"],
+	"working_dir": "<path_to_pdpy11>",
+	"windows": {
+		"shell_cmd": "sublime\\subl.bat \"$file_path\\\\$file_name\""
+	},
+	"linux": {
+		"shell_cmd": "sublime\\./subl.sh \"$file_path/$file_name\""
+	},
+	"osx": {
+		"shell_cmd": "sublime\\./subl.sh \"$file_path/$file_name\""
+	},
+	"file_regex": "(.*?):::(.*?):::(.*?):::(.*)"
+}
