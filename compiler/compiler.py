@@ -385,7 +385,8 @@ class Compiler(object):
 					.then(negativeImmediateValue, int)
 				)
 
-				self.writeWord(commands.imm_arg_commands[command][0] | (value // 2), coords)
+				self.writeWord(commands.imm_arg_commands[command][0] | value, coords)
+				return
 			elif command in commands.two_arg_commands:
 				self.writeWord(
 					commands.two_arg_commands[command] |
