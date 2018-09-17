@@ -5,10 +5,8 @@ from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from . import commands
 from . import util
+from .util import raiseCompilerError
 from .expression import Expression, ExpressionEvaluateError
-
-class CompilerError(Exception):
-	pass
 
 class Compiler(object):
 	def __init__(self, syntax="pdpy11", link=0o1000, file_list=[], project=None):
@@ -107,11 +105,7 @@ class Compiler(object):
 		with open(file) as f:
 			code = f.read()
 
-		try:
-			self.compileFile(file, code)
-		except CompilerError as e:
-			print(e)
-			raise SystemExit(1)
+		self.compileFile(file, code)
 
 	def resolve(self, file, base):
 		# Resolve file path
@@ -164,7 +158,7 @@ class Compiler(object):
 				self.link_address = Deferred(self.link_address, int)(self)
 				self.output = array[self.link_address:]
 				return self.build
-		except (ExpressionEvaluateError, CompilerError) as e:
+		except ExpressionEvaluateError as e:
 			print(e)
 			raise SystemExit(1)
 
@@ -525,14 +519,7 @@ class Compiler(object):
 
 
 	def err(self, coords, text):
-		raise CompilerError(
-			"{err}\n  at file {file} (line {line}, column {column})\n\n{text}".format(
-				err=text,
-				file=coords["file"],
-				line=coords["line"], column=coords["column"],
-				text=coords["text"]
-			)
-		)
+		raiseCompilerError(text, coords)
 
 
 	def defineLabel(self, file_id, name, value, coords):

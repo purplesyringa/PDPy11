@@ -3,6 +3,7 @@ import os
 from . import commands
 from .expression import Expression, StaticAlloc
 import operator
+from .util import raiseSyntaxError
 
 
 whitespace = "\n\r\t "
@@ -56,13 +57,11 @@ class Parser(object):
 				last_lf = 0
 			col = self.pos - last_lf
 
-			print("Syntax error")
-			print(e)
-			print("  at file", self.file, "(line {line}, column {column})".format(line=line, column=col))
+			stack = []
 			for stage in self.last_error_stages:
 				if stage is not None:
-					print("  at", stage)
-			raise SystemExit(1)
+					stack.append(stage)
+			raiseSyntaxError(self.file, line=line, column=col, stack=stack, error=e)
 
 	def parseCommand(self, labels=None):
 		if labels is None:

@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import sys
 from .compiler import Compiler
-from .compiler.util import encodeBinRaw
+from .compiler.util import encodeBinRaw, setErrorMode
 
 if len(sys.argv) < 2:
 	print("PDPy11 Compiler")
@@ -34,6 +34,9 @@ if len(sys.argv) < 2:
 	print("""-Dname="value" or               Set global label <name> to string <value>       """)
 	print("""-Dname='value' or                                                               """)
 	print("""-Dname=/value/                                                                  """)
+	print()
+	print("""--sublime                       Output errors in Sublime-compatible format. This""")
+	print("""                                allows Sublime to show errors inline.           """)
 	print()
 	print("Directives:")
 	print("""ORG n / .LINK n / .LA n         Link file from N (replaces --link). However, if """)
@@ -140,6 +143,8 @@ while len(args):
 		syntax = args.pop(0)
 	elif arg.startswith("--syntax="):
 		syntax = arg.replace("--syntax=", "")
+	elif arg == "--sublime":
+		setErrorMode(sublime=True)
 	elif arg[:2] == "-D":
 		name, value = arg[2:].split("=", 1)
 		str_punct = ("\"", "'", "/")
