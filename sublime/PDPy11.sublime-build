@@ -5,10 +5,10 @@
 		"shell_cmd": "sublime\\subl.bat \"$file_path\\\\$file_name\""
 	},
 	"linux": {
-		"shell_cmd": "sublime\\./subl.sh \"$file_path/$file_name\""
+		"shell_cmd": "./sublime/subl.sh \"$file_path/$file_name\""
 	},
 	"osx": {
-		"shell_cmd": "sublime\\./subl.sh \"$file_path/$file_name\""
+		"shell_cmd": "./sublime/subl.sh \"$file_path/$file_name\""
 	},
 	"file_regex": "(.*?):::(.*?):::(.*?):::(.*)"
 }
