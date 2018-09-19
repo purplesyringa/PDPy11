@@ -79,6 +79,23 @@ def raiseCompilerError(text, coords):
 		print(coords["text"])
 	raise SystemExit(1)
 
+def raiseExpressionEvaluateError(file, line, column, text):
+	if error_mode_sublime:
+		print("{file}:::{line}:::{column}:::{error}".format(
+			file=file,
+			line=line,
+			column=column,
+			error=text
+		))
+	else:
+		print(text)
+		print("  at file {file} (line {line}, column {column})".format(
+			file=file,
+			line=line,
+			column=column
+		))
+	raise SystemExit(1)
+
 def setErrorMode(sublime=True):
 	global error_mode_sublime
 	error_mode_sublime = sublime

@@ -222,7 +222,8 @@ class Parser(object):
 		label = ".{last_mark}".format(last_mark=Parser.last_mark)
 		self.current_labels.append(label)
 		Parser.last_mark += 1
-		return Expression(label, self.file)
+		coords = self.getCurrentCommandCoords()
+		return Expression(label, coords["file"], line=coords["line"], column=coords["column"])
 
 
 
@@ -610,6 +611,7 @@ class Parser(object):
 		with Transaction(self, maybe=maybe, stage="value") as t:
 			# Char (or two)
 			string = self.needString(maybe=True)
+			coords = self.getCurrentCommandCoords()
 
 			if string is not None:
 				t.noRollback()
@@ -618,7 +620,12 @@ class Parser(object):
 						"#'string': expected 1 or 2 chars, got 0"
 					)
 				elif len(string) == 1:
-					return Expression(ord(string[0]), self.file)
+					return Expression(
+						ord(string[0]),
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
 				elif len(string) == 2:
 					a = ord(string[0])
 					b = ord(string[1])
@@ -627,7 +634,12 @@ class Parser(object):
 							"Cannot fit two UTF characters in 1 word: " +
 							"'{string}'".format(string=string)
 						)
-					return Expression(a | (b << 8), self.file)
+					return Expression(
+						a | (b << 8),
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
 				else:
 					raise InvalidError(
 						("Cannot fit {len} characters in 1 word: " +
@@ -641,9 +653,19 @@ class Parser(object):
 			if integer is not None:
 				# Label?
 				if isLabel:
-					return Expression("{last_label}: {int}".format(last_label=self.last_label, int=integer), self.file)
+					return Expression(
+						"{last_label}: {int}".format(last_label=self.last_label, int=integer),
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
 				else:
-					return Expression(integer, self.file)
+					return Expression(
+						integer,
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
@@ -662,7 +684,12 @@ class Parser(object):
 			# Label
 			if literal is None or literal in registers:
 				raise InvalidError("Expected integer, string, . (dot), label or STATIC_ALLOC[_BYTE]")
-			return Expression(literal, self.file)
+			return Expression(
+				literal,
+				coords["file"],
+				line=coords["line"],
+				column=coords["column"]
+			)
 
 
 

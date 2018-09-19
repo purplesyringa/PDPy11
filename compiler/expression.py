@@ -1,21 +1,20 @@
 from .deferred import Deferred
-from .util import octal
+from .util import octal, raiseExpressionEvaluateError
 
-
-class ExpressionEvaluateError(Exception):
-	pass
 
 class Expression(object):
-	def __new__(cls, s, file_id):
+	def __new__(cls, s, file_id, line, column):
 		if isinstance(s, int):
 			return s
 		else:
-			return Deferred(cls.Get(s, file_id), int)
+			return Deferred(cls.Get(s, file_id, line, column), int)
 
 	class Get(object):
-		def __init__(self, s, file_id):
+		def __init__(self, s, file_id, line, column):
 			self.s = s
 			self.file_id = file_id
+			self.line = line
+			self.column = column
 
 		def __call__(self, compiler):
 			if isinstance(self.s, int):
@@ -29,7 +28,12 @@ class Expression(object):
 						global_s = "{file_id}:{s}".format(file_id=self.file_id, s=self.s)
 						return compiler.labels[global_s]
 					except KeyError:
-						raise ExpressionEvaluateError("Label '{s}' not found\n  at {file_id}".format(s=self.s, file_id=self.file_id))
+						raiseExpressionEvaluateError(
+							self.file_id,
+							self.line,
+							self.column,
+							"Label '{s}' not found".format(s=self.s)
+						)
 
 			return Deferred(label, int)
 

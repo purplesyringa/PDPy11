@@ -6,7 +6,7 @@ from .deferred import Deferred
 from . import commands
 from . import util
 from .util import raiseCompilerError
-from .expression import Expression, ExpressionEvaluateError
+from .expression import Expression
 
 class Compiler(object):
 	def __init__(self, syntax="pdpy11", link=0o1000, file_list=[], project=None):
@@ -23,7 +23,7 @@ class Compiler(object):
 		self.writes = []
 		self.extern_labels = False
 		self.included_before = set()
-		self.last_static_alloc = Expression("MEMORY", "STATIC_ALLOC")
+		self.last_static_alloc = Expression("MEMORY", "STATIC_ALLOC", 0, 0)
 
 	def define(self, name, value):
 		value_text = "\"{str}\"".format(str=value) if isinstance(value, str) else value
@@ -117,33 +117,14 @@ class Compiler(object):
 			return os.path.join(base, file)
 
 	def link(self):
-		try:
-			for label in self.labels:
-				Deferred(self.labels[label], int)(self)
+		for label in self.labels:
+			Deferred(self.labels[label], int)(self)
 
-			if self.project is not None:
-				all_build = []
-				for ext, file, writes, link_address in self.all_build:
-					array = []
-					for addr, value in writes:
-						value = Deferred(value, any)(self)
-
-						if not isinstance(value, list):
-							value = [value]
-
-						addr = Deferred(addr, int)(self)
-						for i, value1 in enumerate(value):
-							if addr + i >= len(array):
-								array += [0] * (addr + i - len(array) + 1)
-							array[addr + i] = value1
-
-					link_address = Deferred(link_address, int)(self)
-					all_build.append((ext, file, array[link_address:], link_address))
-
-				return all_build
-			else:
+		if self.project is not None:
+			all_build = []
+			for ext, file, writes, link_address in self.all_build:
 				array = []
-				for addr, value in self.writes:
+				for addr, value in writes:
 					value = Deferred(value, any)(self)
 
 					if not isinstance(value, list):
@@ -155,12 +136,27 @@ class Compiler(object):
 							array += [0] * (addr + i - len(array) + 1)
 						array[addr + i] = value1
 
-				self.link_address = Deferred(self.link_address, int)(self)
-				self.output = array[self.link_address:]
-				return self.build
-		except ExpressionEvaluateError as e:
-			print(e)
-			raise SystemExit(1)
+				link_address = Deferred(link_address, int)(self)
+				all_build.append((ext, file, array[link_address:], link_address))
+
+			return all_build
+		else:
+			array = []
+			for addr, value in self.writes:
+				value = Deferred(value, any)(self)
+
+				if not isinstance(value, list):
+					value = [value]
+
+				addr = Deferred(addr, int)(self)
+				for i, value1 in enumerate(value):
+					if addr + i >= len(array):
+						array += [0] * (addr + i - len(array) + 1)
+					array[addr + i] = value1
+
+			self.link_address = Deferred(self.link_address, int)(self)
+			self.output = array[self.link_address:]
+			return self.build
 
 	def compileFile(self, file, code):
 		parser = Parser(file, code, syntax=self.syntax)
@@ -279,17 +275,7 @@ class Compiler(object):
 			self.defineLabel(parser.file, name, value, coords)
 		elif command == ".REPEAT":
 			count, repeat_commands = arg
-			count = Deferred(count, int)
-			try:
-				count = count(self)
-			except ExpressionEvaluateError as e:
-				self.err(
-					coords,
-					"Error while evaluating .REPEAT count:\n" +
-					"(notice: count must be known at the time of its usage)\n" +
-					"\n" +
-					str(e)
-				)
+			count = Deferred(count, int)(self)
 
 			for _ in range(count):
 				for (command, arg), labels in repeat_commands:
