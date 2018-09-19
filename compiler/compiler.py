@@ -34,7 +34,7 @@ class Compiler(object):
 				"line": 1,
 				"column": 1,
 				"text": "-D{name}={value}".format(name=name, value=value_text)
-			}, "Redefinition of label {label}".format(label=name))
+			}, "Duplicate label {label}".format(label=name))
 
 		self.global_labels[name.upper()] = value
 
@@ -540,7 +540,7 @@ class Compiler(object):
 				if label.endswith(":{name}".format(name=name)):
 					self.err(
 						coords,
-						("Redefinition of global label {name} with local " +
+						("Duplicate global label {name} with local " +
 						"label defined in {file_id}").format(name=name, file_id=label.rsplit(":", 1)[0])
 					)
 
@@ -549,7 +549,7 @@ class Compiler(object):
 			if name in self.labels:
 				self.err(
 					coords,
-					"Redefinition of global label {name}".format(name=name)
+					"Duplicate global label {name}".format(name=name)
 				)
 
 			self.labels[name] = value
@@ -559,7 +559,7 @@ class Compiler(object):
 			if name in self.labels:
 				self.err(
 					coords,
-					("Redefinition of global label {name} with local " +
+					("Duplicate global label {name} with local " +
 					"label defined in {file_id}").format(name=name, file_id=file_id)
 				)
 
@@ -568,7 +568,7 @@ class Compiler(object):
 			if local_name in self.labels:
 				self.err(
 					coords,
-					"Redefinition of local label {name}".format(name=name)
+					"Duplicate local label {name}".format(name=name)
 				)
 
 			self.labels[local_name] = value

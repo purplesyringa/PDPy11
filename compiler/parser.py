@@ -182,7 +182,7 @@ class Parser(object):
 				self.needPunct(":")
 
 				# It's a label
-				label = "{last_label}@{label}".format(last_label=self.last_label, label=label)
+				label = "{last_label}: {label}".format(last_label=self.last_label, label=label)
 				t.exit()
 				for cmd in self.parseCommand(labels=labels + [label]):
 					yield cmd
@@ -641,7 +641,7 @@ class Parser(object):
 			if integer is not None:
 				# Label?
 				if isLabel:
-					return Expression("{last_label}@{int}".format(last_label=self.last_label, int=integer), self.file)
+					return Expression("{last_label}: {int}".format(last_label=self.last_label, int=integer), self.file)
 				else:
 					return Expression(integer, self.file)
 
