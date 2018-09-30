@@ -30,6 +30,7 @@ class Lambda(object):
 		self.optext = optext
 		self.op = op
 		self.r = r
+		self.repr_disabled = False
 
 	def __call__(self, context):
 		if self.r is not None:
@@ -40,7 +41,9 @@ class Lambda(object):
 			return call(self.l, context)
 
 	def __repr__(self):
-		if self.r is not None:
+		if self.repr_disabled:
+			return "<Lambda>"
+		elif self.r is not None:
 			return "({l!r} {op} {r!r})".format(l=self.l, op=self.getOpText(), r=self.r)
 		elif self.op is not None:
 			return "({op}{value!r})".format(op=self.getOpText(), value=self.l)
@@ -65,8 +68,14 @@ class Lambda(object):
 def infix(text, op):
 	def infix(self, other):
 		if isinstance(other, Deferred):
-			res_type = ops_signature.get((self.type, text, other.type), any)
-			return Deferred(Lambda(self, text, op, other), res_type)
+			if other.cached:
+				res_type = ops_signature.get((self.type, text, other.type), any)
+				defer = Deferred(self, res_type)
+				defer.addPendingMath(text, op, other.cache, reverse=False)
+				return defer
+			else:
+				res_type = ops_signature.get((self.type, text, other.type), any)
+				return Deferred(Lambda(self, text, op, other), res_type)
 		else:
 			res_type = ops_signature.get((self.type, text, type(other)), any)
 			defer = Deferred(self, res_type)
@@ -98,14 +107,15 @@ def call(f, context):
 	if not callable(f):
 		return f
 
-	if isinstance(f, Deferred):
+	if isinstance(f, (Deferred, Lambda)):
 		f.repr_disabled = True
+
 	try:
 		spec = inspect.getargspec(f)
 	except TypeError:
 		spec = inspect.getargspec(f.__call__)
 	finally:
-		if isinstance(f, Deferred):
+		if isinstance(f, (Deferred, Lambda)):
 			f.repr_disabled = False
 
 	args = len(spec.args)
@@ -132,11 +142,17 @@ class Deferred(object):
 			self.cached = f.cached
 			self.cache = f.cache
 			self.type = tp if tp is not None else f.type
-		else:
+		elif callable(f):
 			self.f = Lambda(f)
 			self.pending_math = []
 			self.cached = False
 			self.cache = None
+			self.type = tp if tp is not None else type(f)
+		else:
+			self.f = Lambda(f)
+			self.pending_math = []
+			self.cached = True
+			self.cache = f
 			self.type = tp if tp is not None else type(f)
 
 		self.is_evaluating = False
@@ -170,7 +186,13 @@ class Deferred(object):
 		return result
 
 	def addPendingMath(self, optext, op, other, reverse=False):
-		self.cached = False
+		if self.cached:
+			# Evaluate the operation on cached result
+			if reverse:
+				self.cache = op(other, self.cache)
+			else:
+				self.cache = op(self.cache, other)
+
 
 		if self.isA(int):
 			if not reverse and optext == "-":
@@ -205,6 +227,7 @@ class Deferred(object):
 						return
 
 		self.pending_math.append([optext, op, other, reverse])
+
 
 	def isA(self, type):
 		return (
@@ -277,12 +300,21 @@ class Deferred(object):
 		return self.then(tp, tp)
 
 	def then(self, f, tp):
-		return Deferred(Lambda(self, "({name})".format(name=f.__name__), lambda value: f(value)), tp)
+		if self.cached:
+			return Deferred(f(self.cache), tp)
+		else:
+			return Deferred(Lambda(self, "({name})".format(name=f.__name__), lambda value: f(value)), tp)
 
 
 
 	@classmethod
 	def If(cls, cond, true, false):
+		if cond.cached:
+			if cond.cache:
+				return cls(true)
+			else:
+				return cls(false)
+
 		cond = cls(cond)
 		true = cls(true)
 		false = cls(false)
