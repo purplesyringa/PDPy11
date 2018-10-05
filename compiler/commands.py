@@ -52,7 +52,8 @@ one_arg_commands = {
 	"ASLB":   0o106300,
 	"SXT":    0o006700,
 	"MTPS":   0o106400,
-	"MFPS":   0o106700
+	"MFPS":   0o106700,
+	"POP":    0o012600
 }
 
 jmp_commands = {

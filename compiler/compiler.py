@@ -386,6 +386,12 @@ class Compiler(object):
 					0o000200 | self.encodeRegister(arg[0]),
 					coords
 				)
+			elif command == "PUSH":
+				self.writeWord(
+					0o010046 |
+					self.encodeArg(arg[0]) << 6,
+					coords
+				)
 			elif command == "SOB":
 				def unalignedSOB(offset):
 					if offset % 2 == 1:

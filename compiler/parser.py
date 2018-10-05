@@ -380,6 +380,10 @@ class Parser(object):
 				# Need register
 				reg = self.needRegister()
 				return command_name, (reg,)
+			elif command_name == "PUSH":
+				# Need exactly 1 argument
+				arg = self.needArgument()
+				return command_name, (arg,)
 			elif command_name == "SOB":
 				# Need register & relative address (or label)
 				reg1 = self.needRegister()
