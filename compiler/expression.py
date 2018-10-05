@@ -46,7 +46,7 @@ class Expression(object):
 	@staticmethod
 	def asOffset(expr):
 		if isinstance(expr, int):
-			expr = Deferred(Expression.Get(expr, "???"), int)
+			expr = Deferred(Expression.Get(expr, "???", 0, 0), int)
 
 		expr.isOffset = True
 		return expr
