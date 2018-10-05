@@ -34,6 +34,7 @@ class Parser(object):
 	def __init__(self, file, code, syntax):
 		self.code = code
 		self.pos = 0
+		self.cmd_start = 0
 		self.file = file
 		self.decimal = False
 		self.syntax = syntax
