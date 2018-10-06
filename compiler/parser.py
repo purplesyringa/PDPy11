@@ -106,6 +106,9 @@ class Parser(object):
 			elif literal in ("MAKE_BK0010_ROM", "MAKE_BIN"):
 				yield self.handleMakeBin(), labels
 				return
+			elif literal == "MAKE_SAV":
+				yield self.handleMakeSav(), labels
+				return
 			elif literal == "CONVERT1251TOKOI8R":
 				yield self.handleConvert1251toKOI8R(), labels
 				return
@@ -304,6 +307,10 @@ class Parser(object):
 	def handleMakeBin(self):
 		with Transaction(self, maybe=False, stage=".MAKE_BIN"):
 			return ".MAKE_BIN", self.needString(maybe=True)
+
+	def handleMakeSav(self):
+		with Transaction(self, maybe=False, stage=".MAKE_SAV"):
+			return ".MAKE_SAV", self.needString(maybe=True)
 
 	def handleConvert1251toKOI8R(self):
 		with Transaction(self, maybe=False, stage=".CONVERT1251TOKOI8R"):

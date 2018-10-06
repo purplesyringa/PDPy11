@@ -2,14 +2,27 @@ from __future__ import print_function
 import sys
 from .deferred import Deferred
 
-def encodeBinRaw(isBin, raw, link_address):
-	if isBin:
+def encodeBinRawSav(output_format, raw, link_address):
+	if output_format == "bin":
 		header = [
 			link_address & 0xFF,
 			link_address >> 8,
 			len(raw) & 0xFF,
 			len(raw) >> 8
 		]
+	elif output_format == "sav":
+		header = [0] * 32 + [
+			link_address & 0xFF,
+			link_address >> 8,
+			0o1000 & 0xFF,
+			0o1000 >> 8,
+			0,
+			0,
+			0,
+			0,
+			(link_address + len(raw)) & 0xFF,
+			(link_address + len(raw)) >> 8
+		] + [0] * 214 + [0] * (link_address - 256)
 	else:
 		header = []
 

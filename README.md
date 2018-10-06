@@ -55,6 +55,8 @@ The header (4 bytes) is called ".bin header", sometimes "binary header".
 
 To remove ".bin header", run `python -m pdpy11 path-to/test.mac --raw`.
 
+If you want to use `.sav` format, run `python -m pdpy11 path-to/test.mac --sav`.
+
 ### Syntax
 
 Standard PDP-11 assembler syntax is used, i.e.:

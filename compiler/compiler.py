@@ -52,7 +52,7 @@ class Compiler(object):
 			parser = Parser(file, code, syntax=self.syntax)
 
 			for (command, arg), labels in parser.parse():
-				if command == ".MAKE_RAW" or command == ".MAKE_BIN":
+				if command == ".MAKE_RAW" or command == ".MAKE_BIN" or command == ".MAKE_SAV":
 					to_make.add(file)
 
 		# All these files are separate project roots,
@@ -258,6 +258,14 @@ class Compiler(object):
 						arg = arg[:-4]
 					arg += ".bin"
 				self.build.append(("bin", arg))
+		elif command == ".MAKE_SAV":
+			if parser.file == self.include_root:
+				if arg is None:
+					arg = parser.file
+					if arg.endswith(".mac"):
+						arg = arg[:-4]
+					arg += ".sav"
+				self.build.append(("sav", arg))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass
 		elif command == ".DECIMALNUMBERS":

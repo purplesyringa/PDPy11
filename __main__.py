@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import sys
 from .compiler import Compiler
-from .compiler.util import encodeBinRaw, setErrorMode
+from .compiler.util import encodeBinRawSav, setErrorMode
 
 if len(sys.argv) < 2:
 	print("PDPy11 Compiler")
@@ -11,7 +11,9 @@ if len(sys.argv) < 2:
 	print("Usage:")
 	print("""pdpy11 file.mac                 Compile file.mac to file.bin                    """)
 	print("""pdpy11 file.mac --bin           Compile file.mac to file.bin, replaces          """)
-	print("""                                make_raw / make_bk0010_rom / make_bin           """)
+	print("""                                make_raw / make_bk0010_rom / make_bin / make_sav""")
+	print("""pdpy11 file.mac --sav           Compile file.mac to file.sav, replaces          """)
+	print("""                                make_raw / make_bk0010_rom / make_bin / make_sav""")
 	print("""pdpy11 file.mac --raw           Compile file.mac to file, without bin header    """)
 	print("""pdpy11 a b c                    Compile & link files a, b and c to a.bin        """)
 	print("""pdpy11 a b c -o proj --raw      Compile & link files a, b and c to proj (w/o bin""")
@@ -74,6 +76,8 @@ if len(sys.argv) < 2:
 	print("""                                resulting filename.                             """)
 	print("""make_bk0010_rom ["..."] /       Same as --bin. If string is passed, this is the """)
 	print("""make_bin ["..."]                resulting filename.                             """)
+	print("""make_sav ["..."]                Same as --sav. If string is passed, this is the """)
+	print("""                                resulting filename.                             """)
 	print("""convert1251toKOI8R {ON|OFF}     Ignored                                         """)
 	print("""decimalnumbers {ON|OFF}         If ON, N is the same as N., and you must use    """)
 	print("""                                0oN or 0N or No for octal. This does not affect """)
@@ -91,8 +95,8 @@ if len(sys.argv) < 2:
 	print("Project mode")
 	print("""PDPy11 can compile projects. Use `--project directory` CLI argument for this.   """)
 	print("""PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` --  """)
-	print("""see below) containing `make_raw`, `make_bk0010_rom` or `make_bin` directive.    """)
-	print("""Such files are called "include roots".                                          """)
+	print("""see below) containing `make_raw`, `make_bk0010_rom`, `make_bin` or `make_sav`   """)
+	print("""directive. Such files are called "include roots".                               """)
 	print()
 	print("""In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which   """)
 	print("""means to include all `.mac` files inside the directory (except files mentioned  """)
@@ -113,7 +117,7 @@ if len(sys.argv) < 2:
 
 
 # Parse CLI arguments
-isBin = None
+output_format = None
 files = []
 output = None
 syntax = "pdpy11"
@@ -126,9 +130,11 @@ while len(args):
 	arg = args.pop(0)
 
 	if arg == "--bin":
-		isBin = True
+		output_format = "bin"
+	elif arg == "--sav":
+		output_format = "sav"
 	elif arg == "--raw":
-		isBin = False
+		output_format = "raw"
 	elif arg == "--project":
 		if project is not None:
 			print("Only 1 project may be linked")
@@ -189,8 +195,10 @@ if output is None:
 		output_noext = output
 
 		# Add extension
-		if isBin is None or isBin:
+		if output_format is None or output_format == "bin":
 			output += ".bin"
+		elif output_format == "sav":
+			output += ".sav"
 		else:
 			output += ".raw"
 	else:
@@ -200,8 +208,10 @@ if output is None:
 		output_noext = output
 
 		# Add extension
-		if isBin is None or isBin:
+		if output_format is None or output_format == "bin":
 			output += ".bin"
+		elif output_format == "sav":
+			output += ".sav"
 
 file_list = []
 
@@ -268,7 +278,7 @@ if project is not None:
 	# Project mode
 	for ext, file, output, link_address in compiler.buildProject():
 		with open(file, "wb") as f:
-			f.write(encodeBinRaw(ext == "bin", output, link_address))
+			f.write(encodeBinRawSav(ext, output, link_address))
 else:
 	# Single file mode
 	for file in files:
@@ -278,9 +288,9 @@ else:
 
 	for ext, file in out_files:
 		with open(file, "wb") as f:
-			f.write(encodeBinRaw(ext == "bin", compiler.output, compiler.link_address))
+			f.write(encodeBinRawSav(ext, compiler.output, compiler.link_address))
 
-	if len(out_files) == 0 or isBin is None:
+	if len(out_files) == 0 or output_format is none:
 		# No output file
 		with open(output, "wb") as f:
-			f.write(encodeBinRaw(isBin is None or isBin, compiler.output, compiler.link_address))
+			f.write(encodeBinRawSav(output_format or "bin", compiler.output, compiler.link_address))

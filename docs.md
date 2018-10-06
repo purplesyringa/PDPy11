@@ -38,11 +38,13 @@ To compile a single file, use `pdpy11 filename.mac` syntax. The result will be o
 
 To compile a single file in raw mode (without `.bin` header), use `pdpy11 filename.mac --raw` syntax. The result will be outputted to `filename`.
 
-To set output filename, use: `pdpy11 filename.mac -o output`. It will be outputted to `output`, no matter whether `--raw` or `--bin` are passed.
+To compile a single file to `.sav` format, use `pdpy11 filename.mac --sav` syntax. The result will be outputted to `filename.sav`.
+
+To set output filename, use: `pdpy11 filename.mac -o output`. It will be outputted to `output`, no matter whether `--raw`, `--bin` or `--sav` are passed.
 
 To set output format, both CLI arguments and meta-commands can be used.
 
-If at least one meta-command is used inside file (`make_bk0010_rom`/`make_bin` = `--bin` or `make_raw` = `--raw`) is used, the result won't be outputted to `filename` or `filename.bin`. To force it as well as `make_bk0010_rom`/`make_bin` and `make_raw`, add `--bin` or `--raw` CLI argument.
+If at least one meta-command is used inside file (`make_bk0010_rom`/`make_bin` = `--bin` or `make_raw` = `--raw` or `make_sav` = `--sav`) is used, the result won't be outputted to `filename`, `filename.bin` or `filename.sav`. To force it as well as `make_bk0010_rom`/`make_bin`, `make_raw` and `make_sav`, add `--bin` or `--raw` or `--sav` CLI argument.
 
 To set link address if it's not mentioned in `.mac` file, use `--link N` argument. It has less priority than `.LINK` or `.LA` or `ORG`.
 
@@ -59,7 +61,7 @@ For `--project` argument, see *Project mode*.
 
 Default: `1000`.
 
-Set PC to `addr`, and output to `.bin` (or `.raw`) data since `addr`.
+Set PC to `addr`, and output to `.bin` (or `.raw`, or `.sav`) data since `addr`.
 
 Example:
 
@@ -92,7 +94,7 @@ Example:
 A: .WORD A
 ```
 
-**Output:** (`.bin` from 1000)
+**Output:** (`.bin`/`.sav` from 1000)
 
 ```
 000001 000002 000003 002000
@@ -185,6 +187,10 @@ Output resulting file (since link address) to `filename`, or to compilable-file-
 ### `make_bk0010_rom [/filename/]` / `make_bin [/filename/]`
 
 Output resulting file (since link address) with binary header to `filename`, or to compilable-file-without-mac-extension + `.bin` if filename is not passed.
+
+### `make_sav [/filename/]`
+
+Output resulting file (since link address) with `.sav` header to `filename`, or to compilable-file-without-mac-extension + `.sav` if filename is not passed.
 
 ### `convert1251toKOI8R boolean`
 
@@ -383,7 +389,7 @@ As you might need `SEL1` & `SEL2` in several files, you add `.ONCE` to **sel.mac
 
 ## Project mode
 
-PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw`, `make_bk0010_rom` or `make_bin` directive. Such files are called "include roots".
+PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw`, `make_bk0010_rom`, `make_bin` or `make_sav` directive. Such files are called "include roots".
 
 Example:
 
