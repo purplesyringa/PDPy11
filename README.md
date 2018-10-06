@@ -53,9 +53,21 @@ This will generate `test.bin` file with the following content:
 
 The header (4 bytes) is called ".bin header", sometimes "binary header".
 
-To remove ".bin header", run `python -m pdpy11 path-to/test.mac --raw`.
+To remove ".bin header", run `python -m pdpy11 path-to/test.mac --raw`, or add `make_raw` meta-command to the end of the file.
 
-If you want to use `.sav` format, run `python -m pdpy11 path-to/test.mac --sav`.
+If you want to use `.sav` format, run `python -m pdpy11 path-to/test.mac --sav` (or use `make_sav` meta-command):
+
+For example:
+
+```
+MOV #2, R1
+make_raw
+```
+
+```
+MOV #2, R1
+make_sav
+```
 
 ### Syntax
 
