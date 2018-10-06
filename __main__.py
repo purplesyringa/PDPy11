@@ -282,6 +282,7 @@ if project is not None:
 else:
 	# Single file mode
 	for file in files:
+		compiler.include_root = file
 		compiler.addFile(file)
 
 	out_files = compiler.link()
