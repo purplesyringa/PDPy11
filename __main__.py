@@ -291,7 +291,7 @@ else:
 		with open(file, "wb") as f:
 			f.write(encodeBinRawSav(ext, compiler.output, compiler.link_address))
 
-	if len(out_files) == 0 or output_format is none:
+	if len(out_files) == 0 or output_format is None:
 		# No output file
 		with open(output, "wb") as f:
 			f.write(encodeBinRawSav(output_format or "bin", compiler.output, compiler.link_address))
