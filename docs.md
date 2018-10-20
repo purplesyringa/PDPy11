@@ -30,6 +30,14 @@ The supported operators are (sorted by priority):
 - `+` and `-`
 - `*`, `/` (divide and floor) and `%` (modulo)
 
+The number format is the following:
+
+- `1234` -- octal (decimal in case you use `decimalnumbers` directive)
+- `1234.` -- decimal
+- `0b101010` -- `binary`
+- `0o1234` -- octal
+- `0x1234` -- hexadimical
+
 In `pdp11asm` compatibility mode, only `+`, `-`, `*` and `/` are supported, executed from left to right, independent of priority.
 
 ## Command line usage
