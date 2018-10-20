@@ -196,7 +196,7 @@ class Compiler(object):
 				self.linkPC = arg
 				self.link_address = arg
 		elif command == ".INCLUDE":
-			self.include(arg, parser.file)
+			self.include(arg, parser.file, coords)
 		elif command == ".PDP11":
 			pass
 		elif command == ".I8080":
@@ -282,7 +282,7 @@ class Compiler(object):
 			except IOError as e:
 				self.err(
 					coords,
-					"Error including {file} (relative to {relative})".format(
+					"Error inserting {file} (relative to {relative})".format(
 						file=arg, relative=parser.file
 					)
 				)
@@ -450,11 +450,19 @@ class Compiler(object):
 					self.writeWord(additional, coords)
 
 
-	def include(self, path, file):
+	def include(self, path, file, coords):
 		old_PC = self.PC
 		old_linkPC = self.linkPC
 
-		self.addFile(path, relative_to=file)
+		try:
+			self.addFile(path, relative_to=file)
+		except IOError:
+			self.err(
+				coords,
+				"Error including {file} (relative to {relative})".format(
+					file=path, relative=file
+				)
+			)
 
 		include_length = self.PC - old_PC
 		self.linkPC = old_linkPC + include_length
