@@ -99,5 +99,9 @@ two_arg_commands = {
 
 reg_commands = {
 	"JSR":    0o004000,
+	"MUL":    0o070000,
+	"DIV":    0o071000,
+	"ASH":    0o072000,
+	"ASHC":   0o073000,
 	"XOR":    0o074000
 }
