@@ -44,7 +44,7 @@ class Compiler(object):
 		to_make = set()
 		for file in self.file_list:
 			# Read file
-			with open(file) as f:
+			with open(file, "r") as f:
 				code = f.read()
 
 			# Parse it
@@ -102,7 +102,7 @@ class Compiler(object):
 					self.addFile(subfile, relative_to=self.project)
 			return
 
-		with open(file) as f:
+		with open(file, "r") as f:
 			code = f.read()
 
 		self.compileFile(file, code)
@@ -271,13 +271,21 @@ class Compiler(object):
 		elif command == ".DECIMALNUMBERS":
 			pass
 		elif command == ".INSERT_FILE":
-			with open(self.resolve(arg, os.path.dirname(parser.file)), "rb") as f:
-				if sys.version_info[0] == 2:
-					# Python 2
-					self.writeBytes([ord(char) for char in f.read()])
-				else:
-					# Python 3
-					self.writeBytes([char for char in f.read()])
+			try:
+				with open(self.resolve(arg, os.path.dirname(parser.file)), "rb") as f:
+					if sys.version_info[0] == 2:
+						# Python 2
+						self.writeBytes([ord(char) for char in f.read()])
+					else:
+						# Python 3
+						self.writeBytes([char for char in f.read()])
+			except IOError as e:
+				self.err(
+					coords,
+					"Error including {file} (relative to {relative})".format(
+						file=arg, relative=parser.file
+					)
+				)
 		elif command == ".EQU":
 			name, value = arg
 			self.defineLabel(parser.file, name, value, coords)
