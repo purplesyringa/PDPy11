@@ -3,7 +3,7 @@ import os
 from . import commands
 from .expression import Expression, StaticAlloc
 import operator
-from .util import raiseSyntaxError
+from .util import raiseSyntaxError, A, R, D, I, PC
 
 
 whitespace = "\n\r\t "
@@ -367,11 +367,11 @@ class Parser(object):
 			elif command_name in commands.jmp_commands:
 				# Need 1 label, or relative address
 				expr = self.needExpression(isLabel=True)
-				return command_name, (expr,)
+				return command_name, (D(expr),)
 			elif command_name in commands.imm_arg_commands:
 				# Need 1 expression
 				expr = self.needExpression()
-				return command_name, (expr,)
+				return command_name, (I(expr),)
 			elif command_name in commands.two_arg_commands:
 				# Need exactly 2 arguments
 				arg1 = self.needArgument()
@@ -397,7 +397,7 @@ class Parser(object):
 				reg1 = self.needRegister()
 				self.needPunct(",")
 				arg2 = self.needExpression(isLabel=True)
-				return command_name, (reg1, arg2)
+				return command_name, (reg1, D(arg2))
 			else:
 				raise InvalidError(
 					"Expected command name, got '{command_name}'".format(command_name=command_name)
@@ -418,10 +418,10 @@ class Parser(object):
 
 				if self.needPunct("+", maybe=True):
 					# (Rn)+
-					return (reg, "(Rn)+"), None
+					return A(reg, "(Rn)+")
 				else:
 					# (Rn)
-					return (reg, "(Rn)"), None
+					return A(reg, "(Rn)")
 			elif self.needPunct("@", maybe=True):
 				# @Rn, @(Rn)+, @-(Rn), @expression(Rn), @(Rn), @#expression or
 				# @expression
@@ -436,19 +436,19 @@ class Parser(object):
 						t.noRollback()
 						reg = self.needRegister()
 						self.needPunct(")")
-						return (reg, "@N(Rn)"), expr
+						return A(reg, "@N(Rn)", expr)
 					else:
 						# @expression
 						if self.syntax == "pdp11asm":
 							# PDP11Asm bug
-							return ("PC", "@N(Rn)"), expr
+							return A(PC, "@N(Rn)", expr)
 						else:
-							return ("PC", "@N(Rn)"), Expression.asOffset(expr)
+							return A(PC, "@N(Rn)", Expression.asOffset(expr))
 				elif self.needPunct("#", maybe=True):
 					# @#expression = @(PC)+
 					t.noRollback()
 					expr = self.needExpression()
-					return ("PC", "@(Rn)+"), expr
+					return A(PC, "@(Rn)+", expr)
 				elif self.needPunct("(", maybe=True):
 					# @(Rn)+ or @(Rn)
 					t.noRollback()
@@ -456,21 +456,26 @@ class Parser(object):
 					self.needPunct(")")
 					if self.needPunct("+", maybe=True):
 						# @(Rn)+
-						return (reg, "@(Rn)+"), None
+						return A(reg, "@(Rn)+")
 					else:
 						# @0(Rn)
-						return (reg, "@N(Rn)"), Expression(0, self.file)
+						coords = self.getCurrentCommandCoords()
+						return A(reg, "@N(Rn)", Expression(
+							0, self.file,
+							line=coords["line"],
+							column=coords["column"]
+						))
 				elif self.needPunct("-", maybe=True):
 					# @-(Rn)
 					t.noRollback()
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
-					return (reg, "@-(Rn)"), None
+					return A(reg, "@-(Rn)")
 				else:
 					# @Rn = (Rn)
 					reg = self.needRegister()
-					return (reg, "(Rn)"), None
+					return A(reg, "(Rn)")
 			else:
 				# Rn, -(Rn), expression(Rn), expression or #expression
 				expr = self.needExpression(maybe=True)
@@ -482,33 +487,33 @@ class Parser(object):
 						t.noRollback()
 						reg = self.needRegister()
 						self.needPunct(")")
-						return (reg, "N(Rn)"), expr
+						return A(reg, "N(Rn)", expr)
 					else:
 						# expression = expression - ...(PC)
-						return ("PC", "N(Rn)"), Expression.asOffset(expr)
+						return A(PC, "N(Rn)", Expression.asOffset(expr))
 				elif self.needPunct("-", maybe=True):
 					# -(Rn)
 					t.noRollback()
 					self.needPunct("(")
 					reg = self.needRegister()
 					self.needPunct(")")
-					return (reg, "-(Rn)"), None
+					return A(reg, "-(Rn)")
 				elif self.needPunct("#", maybe=True):
 					# #expression = (PC)+
 					t.noRollback()
 					expr = self.needExpression()
-					return ("PC", "(Rn)+"), expr
+					return A(PC, "(Rn)+", expr)
 				else:
 					# Rn
 					reg = self.needRegister()
-					return (reg, "Rn"), None
+					return A(reg, "Rn")
 
 
 	def needRegister(self, maybe=False):
 		with Transaction(self, maybe=maybe, stage="register"):
 			literal = self.needLiteral()
 			if literal in registers:
-				return literal
+				return R(literal)
 			else:
 				raise InvalidError(
 					"Expected register, got '{register}'".format(register=literal)

@@ -5,7 +5,7 @@ from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from . import commands
 from . import util
-from .util import raiseCompilerError
+from .util import raiseCompilerError, A, R, D, R0, R1, R2, R3, R4, R5, SP, PC
 from .expression import Expression
 
 class Compiler(object):
@@ -331,15 +331,15 @@ class Compiler(object):
 				self.included_before.add(parser.file)
 		else:
 			# It's a simple command
-			if command in commands.zero_arg_commands:
+			if arg == ():
 				self.writeWord(commands.zero_arg_commands[command], coords)
-			elif command in commands.one_arg_commands:
+			elif len(arg) == 1 and isinstance(arg[0], A):
 				self.writeWord(
 					commands.one_arg_commands[command] |
 					self.encodeArg(arg[0]),
 					coords
 				)
-			elif command in commands.jmp_commands:
+			elif len(arg) == 1 and isinstance(arg[0], D):
 				def unalignedBranch(offset):
 					if offset % 2 == 1:
 						self.err(coords, "Unaligned branch: {len} bytes".format(len=util.octal(offset)))
@@ -351,7 +351,7 @@ class Compiler(object):
 					else:
 						return offset
 
-				offset = arg[0] - self.linkPC - 2
+				offset = arg[0].addr - self.linkPC - 2
 				offset = (Deferred(offset, int)
 					.then(unalignedBranch, int)
 					.then(farBranch, int)
@@ -362,7 +362,7 @@ class Compiler(object):
 					util.int8ToUint8(offset),
 					coords
 				)
-			elif command in commands.imm_arg_commands:
+			elif len(arg) == 1 and isinstance(arg[0], I):
 				max_imm_value = commands.imm_arg_commands[command][1]
 
 				def bigImmediateValue(value):
@@ -376,21 +376,21 @@ class Compiler(object):
 					else:
 						return value
 
-				value = (Deferred(arg[0], int)
+				value = (Deferred(arg[0].value, int)
 					.then(bigImmediateValue, int)
 					.then(negativeImmediateValue, int)
 				)
 
 				self.writeWord(commands.imm_arg_commands[command][0] | value, coords)
 				return
-			elif command in commands.two_arg_commands:
+			elif len(arg) == 2 and isinstance(arg[0], A) and isinstance(arg[1], A):
 				self.writeWord(
 					commands.two_arg_commands[command] |
 					(self.encodeArg(arg[0]) << 6) |
 					self.encodeArg(arg[1]),
 					coords
 				)
-			elif command in commands.reg_commands:
+			elif len(arg) == 2 and isinstance(arg[0], R) and isinstance(arg[1], A):
 				self.writeWord(
 					commands.reg_commands[command] |
 					(self.encodeRegister(arg[0]) << 6) |
@@ -420,7 +420,7 @@ class Compiler(object):
 					else:
 						return offset
 
-				offset = self.linkPC + 2 - arg[1]
+				offset = self.linkPC + 2 - arg[1].addr
 				offset = (Deferred(offset, int)
 					.then(unalignedSOB, int)
 					.then(farSOB, int)
@@ -436,14 +436,8 @@ class Compiler(object):
 				self.err(coords, "Unknown command {command}".format(command=command))
 
 			for arg1 in arg:
-				if isinstance(arg1, tuple):
-					_, additional = arg1
-				elif isinstance(arg1, (int, Expression)):
-					additional = arg1
-				else:
-					additional = None
-
-				if additional is not None:
+				if isinstance(arg1, A) and arg1.imm is not None:
+					additional = arg1.imm
 					if getattr(additional, "isOffset", False):
 						additional = additional - self.linkPC - 2
 
@@ -520,18 +514,17 @@ class Compiler(object):
 
 
 	def encodeRegister(self, reg):
-		if reg == "SP":
+		if reg is SP:
 			return 6
-		elif reg == "PC":
+		elif reg is PC:
 			return 7
 		else:
-			return ("R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7").index(reg)
+			return (R0, R1, R2, R3, R4, R5).index(reg)
 	def encodeAddr(self, addr):
 		return ("Rn", "(Rn)", "(Rn)+", "@(Rn)+", "-(Rn)", "@-(Rn)", "N(Rn)", "@N(Rn)").index(addr)
 
 	def encodeArg(self, arg):
-		(reg, addr), _ = arg
-		return (self.encodeAddr(addr) << 3) | self.encodeRegister(reg)
+		return (self.encodeAddr(arg.mode) << 3) | self.encodeRegister(arg.reg)
 
 
 	def err(self, coords, text):
