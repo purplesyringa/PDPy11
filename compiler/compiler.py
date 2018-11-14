@@ -332,7 +332,7 @@ class Compiler(object):
 		elif callable(commands[command][1]):
 			# Metacommand
 			for sub_command, sub_arg in commands[command][1](*arg):
-				self.handleCommand(parser, sub_command, sub_arg, labels)
+				self.handleCommand(parser, sub_command, sub_arg, [])
 		else:
 			# It's a simple command
 			if arg == ():
