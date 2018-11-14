@@ -388,7 +388,7 @@ class Compiler(object):
 					.then(negativeImmediateValue, int)
 				)
 
-				self.writeWord(commands[command][0] | value, coords)
+				self.writeWord(commands[command][1] | value, coords)
 				return
 			elif len(arg) == 1 and isinstance(arg[0], R):
 				self.writeWord(
