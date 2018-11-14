@@ -5,7 +5,7 @@ from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from .commands import commands
 from . import util
-from .util import raiseCompilerError, A, R, D, R0, R1, R2, R3, R4, R5, SP, PC
+from .util import raiseCompilerError, A, R, D, I, R0, R1, R2, R3, R4, R5, SP, PC
 from .expression import Expression
 
 class Compiler(object):
