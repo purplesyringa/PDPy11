@@ -406,6 +406,13 @@ class Compiler(object):
 					self.encodeArg(arg[1]),
 					coords
 				)
+			elif len(arg) == 2 and isinstance(arg[0], A) and isinstance(arg[1], R):
+				self.writeWord(
+					commands[command][1] |
+					(self.encodeRegister(arg[1]) << 6) |
+					self.encodeArg(arg[0]),
+					coords
+				)
 			elif len(arg) == 2 and isinstance(arg[0], R) and isinstance(arg[1], D):
 				def unaligned(offset):
 					if offset % 2 == 1:

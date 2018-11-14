@@ -97,10 +97,10 @@ commands = {
 
 	# Register and argument
 	"JSR":    ((R, A), 0o004000),
-	"MUL":    ((R, A), 0o070000),
-	"DIV":    ((R, A), 0o071000),
-	"ASH":    ((R, A), 0o072000),
-	"ASHC":   ((R, A), 0o073000),
+	"MUL":    ((A, R), 0o070000),
+	"DIV":    ((A, R), 0o071000),
+	"ASH":    ((A, R), 0o072000),
+	"ASHC":   ((A, R), 0o073000),
 	"XOR":    ((R, A), 0o074000),
 
 	# Misc
