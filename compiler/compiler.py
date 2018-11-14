@@ -517,7 +517,7 @@ class Compiler(object):
 			else:
 				return dword
 
-		dword = Deferred(dword, int).then(valueToWord, int)
+		dword = Deferred(dword, int).then(valueToDword, int)
 
 		self.writes.append((self.PC, (dword >> 16) & 0xFF))
 		self.writes.append((self.PC + 1, dword >> 24))
