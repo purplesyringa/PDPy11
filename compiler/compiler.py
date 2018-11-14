@@ -519,10 +519,10 @@ class Compiler(object):
 
 		dword = Deferred(dword, int).then(valueToWord, int)
 
-		self.writes.append((self.PC, dword & 0xFF))
-		self.writes.append((self.PC + 1, (dword >> 8) & 0xFF))
 		self.writes.append((self.PC + 2, (dword >> 16) & 0xFF))
 		self.writes.append((self.PC + 3, dword >> 24))
+		self.writes.append((self.PC, dword & 0xFF))
+		self.writes.append((self.PC + 1, (dword >> 8) & 0xFF))
 		self.PC = self.PC + 4
 		self.linkPC = self.linkPC + 4
 
