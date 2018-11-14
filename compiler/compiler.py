@@ -209,6 +209,9 @@ class Compiler(object):
 		elif command == ".WORD":
 			for word in arg:
 				self.writeWord(word, coords)
+		elif command == ".DWORD":
+			for dword in arg:
+				self.writeDword(dword, coords)
 		elif command == ".END":
 			raise EOFError()
 		elif command == ".BLKB":
@@ -502,6 +505,26 @@ class Compiler(object):
 		self.writes.append((self.PC + 1, word >> 8))
 		self.PC = self.PC + 2
 		self.linkPC = self.linkPC + 2
+
+	def writeDword(self, dword, coords=None):
+		def valueToDword(dword):
+			if dword >= 0x100000000:
+				self.err(coords, "Double word {dword} is too big".format(dword=util.octal(dword)))
+			elif dword < -0x100000000:
+				self.err(coords, "Double word {dword} is too small".format(dword=util.octal(dword)))
+			elif dword < 0:
+				return dword + 0x100000000
+			else:
+				return dword
+
+		dword = Deferred(dword, int).then(valueToWord, int)
+
+		self.writes.append((self.PC, dword & 0xFF))
+		self.writes.append((self.PC + 1, (dword >> 8) & 0xFF))
+		self.writes.append((self.PC + 2, (dword >> 16) & 0xFF))
+		self.writes.append((self.PC + 3, dword >> 24))
+		self.PC = self.PC + 4
+		self.linkPC = self.linkPC + 4
 
 	def writeBytes(self, bytes_):
 		self.writes.append((self.PC, bytes_))

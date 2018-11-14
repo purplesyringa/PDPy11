@@ -150,6 +150,9 @@ class Parser(object):
 					elif literal == "DW" or literal == "WORD":
 						yield self.handleWord(), labels
 						return
+					elif literal == "DWORD":
+						yield self.handleDword(), labels
+						return
 					elif literal == "END":
 						yield (None, None), labels
 						raise EndOfParsingError()
@@ -272,6 +275,14 @@ class Parser(object):
 			while self.needPunct(",", maybe=True):
 				values.append(self.needExpression())
 			return ".WORD", values
+
+	def handleDword(self):
+		# .DWORD
+		with Transaction(self, maybe=False, stage=".DWORD"):
+			values = [self.needExpression()]
+			while self.needPunct(",", maybe=True):
+				values.append(self.needExpression())
+			return ".DWORD", values
 
 	def handleEnd(self):
 		return ".END", None
