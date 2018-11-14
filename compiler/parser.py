@@ -496,13 +496,15 @@ class Parser(object):
 
 	def needRegister(self, maybe=False):
 		with Transaction(self, maybe=maybe, stage="register"):
-			literal = self.needLiteral()
-			if literal in registers:
-				return R(literal)
-			else:
+			literal = self.needLiteral(maybe=True)
+			if not literal:
+				raise InvalidError("Expected register")
+			elif literal not in registers:
 				raise InvalidError(
 					"Expected register, got '{register}'".format(register=literal)
 				)
+			else:
+				return R(literal)
 
 
 	def needExpression(self, isLabel=False, maybe=False):
