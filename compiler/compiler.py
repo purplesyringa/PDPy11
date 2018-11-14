@@ -3,7 +3,7 @@ import os
 import sys
 from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
-from . import commands
+from .commands import commands
 from . import util
 from .util import raiseCompilerError, A, R, D, R0, R1, R2, R3, R4, R5, SP, PC
 from .expression import Expression
@@ -329,13 +329,17 @@ class Compiler(object):
 				raise EOFError()
 			else:
 				self.included_before.add(parser.file)
+		elif callable(commands[command][1]):
+			# Metacommand
+			for sub_command, sub_arg in commands[command][1](*arg):
+				self.handleCommand(parser, sub_command, sub_arg, labels)
 		else:
 			# It's a simple command
 			if arg == ():
-				self.writeWord(commands.zero_arg_commands[command], coords)
+				self.writeWord(commands[command][1], coords)
 			elif len(arg) == 1 and isinstance(arg[0], A):
 				self.writeWord(
-					commands.one_arg_commands[command] |
+					commands[command][1] |
 					self.encodeArg(arg[0]),
 					coords
 				)
@@ -358,12 +362,12 @@ class Compiler(object):
 				)
 
 				self.writeWord(
-					commands.jmp_commands[command] |
+					commands[command][1] |
 					util.int8ToUint8(offset),
 					coords
 				)
 			elif len(arg) == 1 and isinstance(arg[0], I):
-				max_imm_value = commands.imm_arg_commands[command][1]
+				max_imm_value = commands[command][1]
 
 				def bigImmediateValue(value):
 					if value > max_imm_value:
@@ -381,53 +385,47 @@ class Compiler(object):
 					.then(negativeImmediateValue, int)
 				)
 
-				self.writeWord(commands.imm_arg_commands[command][0] | value, coords)
+				self.writeWord(commands[command][0] | value, coords)
 				return
+			elif len(arg) == 1 and isinstance(arg[0], R):
+				self.writeWord(
+					commands[command][1] | self.encodeRegister(arg[0]),
+					coords
+				)
 			elif len(arg) == 2 and isinstance(arg[0], A) and isinstance(arg[1], A):
 				self.writeWord(
-					commands.two_arg_commands[command] |
+					commands[command][1] |
 					(self.encodeArg(arg[0]) << 6) |
 					self.encodeArg(arg[1]),
 					coords
 				)
 			elif len(arg) == 2 and isinstance(arg[0], R) and isinstance(arg[1], A):
 				self.writeWord(
-					commands.reg_commands[command] |
+					commands[command][1] |
 					(self.encodeRegister(arg[0]) << 6) |
 					self.encodeArg(arg[1]),
 					coords
 				)
-			elif command == "RTS":
-				self.writeWord(
-					0o000200 | self.encodeRegister(arg[0]),
-					coords
-				)
-			elif command == "PUSH":
-				self.writeWord(
-					0o010046 |
-					self.encodeArg(arg[0]) << 6,
-					coords
-				)
-			elif command == "SOB":
-				def unalignedSOB(offset):
+			elif len(arg) == 2 and isinstance(arg[0], R) and isinstance(arg[1], D):
+				def unaligned(offset):
 					if offset % 2 == 1:
-						self.err(coords, "Unaligned SOB: {len} bytes".format(len=util.octal(offset)))
+						self.err(coords, "Unaligned {command}: {len} bytes".format(command=command, len=util.octal(offset)))
 					else:
 						return offset // 2
-				def farSOB(offset):
+				def far(offset):
 					if offset < 0 or offset > 63:
-						self.err(coords, "Too far SOB: {len} words".format(len=util.octal(offset)))
+						self.err(coords, "Too far {command}: {len} words".format(command=command, len=util.octal(offset)))
 					else:
 						return offset
 
 				offset = self.linkPC + 2 - arg[1].addr
 				offset = (Deferred(offset, int)
-					.then(unalignedSOB, int)
-					.then(farSOB, int)
+					.then(unaligned, int)
+					.then(far, int)
 				)
 
 				self.writeWord(
-					0o077000 |
+					commands[command][1] |
 					(self.encodeRegister(arg[0]) << 6) |
 					offset,
 					coords

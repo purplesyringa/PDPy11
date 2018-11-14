@@ -1,6 +1,6 @@
 from __future__ import print_function
 import os
-from . import commands
+from .commands import commands
 from .expression import Expression, StaticAlloc
 import operator
 from .util import raiseSyntaxError, A, R, D, I, PC
@@ -357,51 +357,25 @@ class Parser(object):
 		with Transaction(self, maybe=False, stage="compilable command") as t:
 			command_name = self.needLiteral()
 
-			if command_name in commands.zero_arg_commands:
-				# No arguments expected
-				return command_name, ()
-			elif command_name in commands.one_arg_commands:
-				# Need exactly 1 argument
-				arg = self.needArgument()
-				return command_name, (arg,)
-			elif command_name in commands.jmp_commands:
-				# Need 1 label, or relative address
-				expr = self.needExpression(isLabel=True)
-				return command_name, (D(expr),)
-			elif command_name in commands.imm_arg_commands:
-				# Need 1 expression
-				expr = self.needExpression()
-				return command_name, (I(expr),)
-			elif command_name in commands.two_arg_commands:
-				# Need exactly 2 arguments
-				arg1 = self.needArgument()
-				self.needPunct(",")
-				arg2 = self.needArgument()
-				return command_name, (arg1, arg2)
-			elif command_name in commands.reg_commands:
-				# Need register & argument
-				reg1 = self.needRegister()
-				self.needPunct(",")
-				arg2 = self.needArgument()
-				return command_name, (reg1, arg2)
-			elif command_name == "RTS":
-				# Need register
-				reg = self.needRegister()
-				return command_name, (reg,)
-			elif command_name == "PUSH":
-				# Need exactly 1 argument
-				arg = self.needArgument()
-				return command_name, (arg,)
-			elif command_name == "SOB":
-				# Need register & relative address (or label)
-				reg1 = self.needRegister()
-				self.needPunct(",")
-				arg2 = self.needExpression(isLabel=True)
-				return command_name, (reg1, D(arg2))
-			else:
+			if command_name not in commands:
 				raise InvalidError(
 					"Expected command name, got '{command_name}'".format(command_name=command_name)
 				)
+
+			argtypes = commands[command_name][0]
+			args = []
+			for i, arg in enumerate(argtypes):
+				if i != 0:
+					self.needPunct(",")
+				if arg is A:
+					args.append(self.needArgument())
+				elif arg is D:
+					args.append(D(self.needExpression(isLabel=True)))
+				elif arg is I:
+					args.append(I(self.needExpression()))
+				elif arg is R:
+					args.append(self.needRegister())
+			return command_name, tuple(args)
 
 
 	def needArgument(self, maybe=False):
