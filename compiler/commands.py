@@ -56,7 +56,6 @@ commands = {
 	"SXT":    ((A,  ), 0o006700),
 	"MTPS":   ((A,  ), 0o106400),
 	"MFPS":   ((A,  ), 0o106700),
-	"POP":    ((A,  ), 0o012600),
 
 	# Branch commands
 	"BR":     ((D,  ), 0o000400),
@@ -112,3 +111,7 @@ commands = {
 def PUSH(a):
 	yield "MOV", (a, A(SP, "-(Rn)"))
 commands["PUSH"] = ((A,  ), PUSH)
+
+def POP(a):
+	yield "MOV", (A(SP, "(Rn)+"), a)
+commands["POP"] = ((A,  ), POP)
