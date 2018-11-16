@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import sys
+from collections import defaultdict
 from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
 from .commands import commands
@@ -37,6 +38,44 @@ class Compiler(object):
 			}, "Duplicate label {label}".format(label=name))
 
 		self.global_labels[name.upper()] = value
+
+	def generateLst(self):
+		by_files = defaultdict(lambda: {})
+		for label in self.labels:
+			# Convert string like this: "A: B: C: D: E:F: G: H: I: J"
+			# To this: file "A: B: C: D: E", label "F: G: H: I: J"
+
+			parts = label.split(": ")
+			label_parts = []
+			file_parts = []
+			for i in range(len(parts) - 1, -1, -1):
+				part = parts[i]
+				splitted = part.rsplit(":", 1)
+				label_parts.append(splitted[-1])
+				if len(splitted) > 1:
+					file_parts.append(splitted[0])
+					break
+			file_name = ": ".join(parts[:i] + file_parts)
+			label_name = ": ".join(label_parts[::-1])
+
+			if not file_name:
+				# Global label
+				continue
+
+			if ": " in label_name:
+				# Local label
+				continue
+
+			# Collect labels per file
+			label_value = Deferred(self.labels[label], int)(self)
+			by_files[file_name][label_name] = label_value
+
+		# Output
+		for file_name, labels in by_files.items():
+			yield file_name
+			for name, value in labels.items():
+				yield "{name}={value}".format(name=name, value=util.octal(value))
+			yield ""
 
 	def buildProject(self):
 		# Add all files inside project directory that have
@@ -600,15 +639,15 @@ class Compiler(object):
 					"label defined in {file_id}").format(name=name, file_id=file_id)
 				)
 
-			# Check that such local label is not defined in this file.
-			local_name = "{file_id}:{name}".format(file_id=file_id, name=name)
-			if local_name in self.labels:
-				self.err(
-					coords,
-					"Duplicate local label {name}".format(name=name)
-				)
+		# Check that such local label is not defined in this file.
+		local_name = "{file_id}:{name}".format(file_id=file_id, name=name)
+		if local_name in self.labels:
+			self.err(
+				coords,
+				"Duplicate local label {name}".format(name=name)
+			)
 
-			self.labels[local_name] = value
+		self.labels[local_name] = value
 
 	def static_alloc(self, byte_length):
 		address = self.last_static_alloc

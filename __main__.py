@@ -23,6 +23,8 @@ if len(sys.argv) < 2:
 	print("""pdpy11 --project dir            Compile & link file dir/main.mac (see Project   """)
 	print("""                                mode)                                           """)
 	print()
+	print("""pdpy11 file.mac --lst           Generate listing file "file.lst"                """)
+	print()
 	print("""--link n                        Link file/project from 0oN (default -- 0o1000)  """)
 	print()
 	print("""--syntax pdp11asm               Use pdp11asm bugs/features: @M is same as @M(PC)""")
@@ -124,6 +126,7 @@ syntax = "pdpy11"
 link = "1000"
 project = None
 defines = []
+do_lst = False
 
 args = sys.argv[1:]
 while len(args):
@@ -135,6 +138,8 @@ while len(args):
 		output_format = "sav"
 	elif arg == "--raw":
 		output_format = "raw"
+	elif arg == "--lst":
+		do_lst = True
 	elif arg == "--project":
 		if project is not None:
 			print("Only 1 project may be linked")
@@ -276,11 +281,15 @@ for name, value in defines:
 
 if project is not None:
 	# Project mode
+	lstname = project
 	for ext, file, output, link_address in compiler.buildProject():
 		with open(file, "wb") as f:
 			f.write(encodeBinRawSav(ext, output, link_address))
 else:
 	# Single file mode
+	lstname = files[0]
+	if lstname.endswith(".mac"):
+		lstname = lstname[:-4]
 	for file in files:
 		compiler.include_root = file
 		compiler.addFile(file)
@@ -295,3 +304,8 @@ else:
 		# No output file
 		with open(output, "wb") as f:
 			f.write(encodeBinRawSav(output_format or "bin", compiler.output, compiler.link_address))
+
+if do_lst:
+	with open(lstname + ".lst", "w") as f:
+		for line in compiler.generateLst():
+			f.write(line + "\n")
