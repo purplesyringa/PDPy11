@@ -153,7 +153,7 @@ class Compiler(object):
 			return file
 		else:
 			# Relative
-			return os.path.join(base, file)
+			return os.path.abspath(os.path.join(base, file))
 
 	def link(self):
 		for label in self.labels:
