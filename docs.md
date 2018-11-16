@@ -60,6 +60,8 @@ To set global syntax (see `.SYNTAX` meta-command), use `--syntax {pdp11asm/pdpy1
 
 To set label/constant, use `-Da=N` syntax (same as `a = N`) or `-Da=/N/` (same as `a = /N/`).
 
+To generate `.lst` file, use `--lst` option.
+
 For `--project` argument, see *Project mode*.
 
 
