@@ -79,8 +79,8 @@ WORLD: MOV #HELLO, R0
 
 ```
 path-to/test.mac
-HELLO=4
-WORLD=3000
+000004 HELLO
+003000 WORLD
 ```
 
 ### Syntax

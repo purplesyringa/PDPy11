@@ -40,7 +40,7 @@ class Compiler(object):
 		self.global_labels[name.upper()] = value
 
 	def generateLst(self):
-		by_files = defaultdict(lambda: {})
+		by_files = defaultdict(lambda: [])
 		for label in self.labels:
 			# Convert string like this: "A: B: C: D: E:F: G: H: I: J"
 			# To this: file "A: B: C: D: E", label "F: G: H: I: J"
@@ -68,13 +68,16 @@ class Compiler(object):
 
 			# Collect labels per file
 			label_value = Deferred(self.labels[label], int)(self)
-			by_files[file_name][label_name] = label_value
+			by_files[file_name].append((label_value, label_name))
 
 		# Output
 		for file_name, labels in by_files.items():
 			yield file_name
-			for name, value in labels.items():
-				yield "{name}={value}".format(name=name, value=util.octal(value))
+			for value, name in sorted(labels):
+				text_value = util.octal(value)
+				# Pad to 6 chars
+				text_value = "0" * (6 - len(text_value)) + text_value
+				yield "{value} {name}".format(value=text_value, name=name)
 			yield ""
 
 	def buildProject(self):
