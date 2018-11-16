@@ -61,9 +61,11 @@ class Compiler(object):
 			if not file_name:
 				# Global label
 				continue
-
-			if ": " in label_name:
+			elif ": " in label_name:
 				# Local label
+				continue
+			elif label_name.startswith("."):
+				# . simulation
 				continue
 
 			# Collect labels per file
