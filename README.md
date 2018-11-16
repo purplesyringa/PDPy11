@@ -69,6 +69,20 @@ MOV #2, R1
 make_sav
 ```
 
+For debugging, you can enable `.lst` file generation by using `python -m pdpy11 path-to/test.mac --lst`. Here's an example:
+
+```
+.LINK 3000
+HELLO = 2 + 2
+WORLD: MOV #HELLO, R0
+```
+
+```
+path-to/test.mac
+HELLO=4
+WORLD=3000
+```
+
 ### Syntax
 
 Standard PDP-11 assembler syntax is used, i.e.:
