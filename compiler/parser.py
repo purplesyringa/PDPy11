@@ -185,7 +185,7 @@ class Parser(object):
 
 			if literal is None:
 				# Maybe integer label?
-				label = self.needInteger()
+				label = self.needIntegerLabel()
 				self.needPunct(":")
 
 				# It's a label
@@ -652,24 +652,26 @@ class Parser(object):
 						)
 					)
 
+			# Integer / local label
+			if isLabel:
+				local_label = self.needIntegerLabel(maybe=True)
+				if local_label is not None:
+					return Expression(
+						"{last_label}: {local_label}".format(last_label=self.last_label, local_label=local_label),
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
+
 			# Integer
 			integer = self.needInteger(maybe=True)
 			if integer is not None:
-				# Label?
-				if isLabel:
-					return Expression(
-						"{last_label}: {int}".format(last_label=self.last_label, int=integer),
-						coords["file"],
-						line=coords["line"],
-						column=coords["column"]
-					)
-				else:
-					return Expression(
-						integer,
-						coords["file"],
-						line=coords["line"],
-						column=coords["column"]
-					)
+				return Expression(
+					integer,
+					coords["file"],
+					line=coords["line"],
+					column=coords["column"]
+				)
 
 			# . (dot)
 			if self.needPunct(".", maybe=True):
@@ -751,6 +753,41 @@ class Parser(object):
 					raise InvalidError("Expected '{exp}', got '{char}'".format(exp=char, char=self.code[self.pos]))
 			except IndexError:
 				raise InvalidError("Expected '{char}', got EOF".format(char=char))
+
+
+	def needIntegerLabel(self, maybe=False):
+		with Transaction(self, maybe=maybe, stage="local label") as t:
+			# Skip whitespace
+			self.skipWhitespace()
+
+			# Try to get digit
+			label = ""
+			try:
+				if self.code[self.pos] in "0123456789":
+					label += self.code[self.pos]
+					self.pos += 1
+				else:
+					raise InvalidError("Expected digit, got '{char}'".format(char=self.code[self.pos]))
+			except IndexError:
+				raise InvalidError("Expected digit, got EOF")
+
+			# Get all the literal left
+			while True:
+				try:
+					if self.code[self.pos] in whitespace + punctuation:
+						# Punctuation or whitespace
+						break
+				except IndexError:
+					# End
+					break
+
+				if self.code[self.pos].upper() in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_$0123456789":
+					label += self.code[self.pos].upper()
+					self.pos += 1
+				else:
+					raise InvalidError("Expected literal, got '{char}'".format(char=self.code[self.pos]))
+
+			return label
 
 
 	def needInteger(self, maybe=False):
