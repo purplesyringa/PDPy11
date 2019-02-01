@@ -20,7 +20,7 @@ $ git clone https://github.com/imachug/pdpy11
 
 ### Via GitHub UI
 
-Press green `Clone or download` button (it's above file list), press `Download ZIP`, extract the archive and rename the directory `PDPy11-master` to `pdpy11` (lowercase!)
+Press green `Clone or download` button (it's above file list), press `Download ZIP` and extract the archive.
 
 ## Docs
 
