@@ -64,6 +64,9 @@ class Lambda(object):
 		else:
 			return self.optext
 
+	def map(self, f):
+		return Lambda(f(self.l), self.optext, self.op, f(self.r))
+
 
 def infix(text, op):
 	def infix(self, other):
@@ -184,6 +187,16 @@ class Deferred(object):
 		self.cached = True
 		self.cache = result
 		return result
+
+
+	def map(self, f):
+		# Change all arguments via f() (only works correctly if the objectd
+		# depend on the context, otherwise pending math could be evaluated
+		# before)
+		res = Deferred(self.f.map(f))
+		res.pending_math = f(self.pending_math)
+		res.type = self.type
+		return res
 
 	def addPendingMath(self, optext, op, other, reverse=False):
 		if self.cached:
