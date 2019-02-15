@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 from .commands import commands
+from .deferred import Deferred
 from .expression import Expression, StaticAlloc
 import operator
 from .util import raiseSyntaxError, A, R, D, I, PC
@@ -533,6 +534,37 @@ class Parser(object):
 				value.isOffset = False
 				return value
 			else:
+				if isLabel:
+					# First, analyze the expression. If it doesn't contain any
+					# brackets, we treat the first integer as a label and
+					# everything that follows as a number (Macro-11-compatible
+					# mode). If there ARE brackets, we treat all integers as
+					# numbers, and local labels must have a suffix of ":".
+
+					has_brackets = False
+
+					with Transaction(self, maybe=True):
+						while True:
+							if self.needPunct("(", maybe=True):
+								has_brackets = True
+								break
+
+							# Try reading value
+							self.needValue(isLabel=isLabel)
+
+							# Get operator
+							cur_char = self.needOperator(maybe=True)
+							if cur_char is None:
+								# Syntax error, handled later
+								break
+						raise InvalidError("Rollback")
+
+					if has_brackets:
+						# Labels must use ":" suffix
+						isLabel = False
+
+
+
 				def execute(char):
 					_, _, op = operators[char]
 					b = stack.pop()
@@ -548,7 +580,11 @@ class Parser(object):
 						op_stack.append("(")
 
 					# Really read value
-					stack.append(self.needValue(isLabel=isLabel))
+					value = self.needValue(isLabel=isLabel)
+					stack.append(value)
+					if isinstance(value, Deferred):
+						# Only the first label is treated as a label
+						isLabel = False
 
 					# Match closing bracket
 					while "(" in op_stack and self.needPunct(")", maybe=True):
@@ -656,6 +692,19 @@ class Parser(object):
 			if isLabel:
 				local_label = self.needIntegerLabel(maybe=True)
 				if local_label is not None:
+					return Expression(
+						"{last_label}: {local_label}".format(last_label=self.last_label, local_label=local_label),
+						coords["file"],
+						line=coords["line"],
+						column=coords["column"]
+					)
+			else:
+				# Try to get an integer label. If it is an integer itself,
+				# there must be a colon next to it to be handled as a label
+				with Transaction(self, maybe=True):
+					local_label = self.needIntegerLabel()
+					if local_label.isdigit():
+						self.needPunct(":")
 					return Expression(
 						"{last_label}: {local_label}".format(last_label=self.last_label, local_label=local_label),
 						coords["file"],
