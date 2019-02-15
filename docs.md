@@ -34,9 +34,35 @@ The number format is the following:
 
 - `1234` -- octal (decimal in case you use `decimalnumbers` directive)
 - `1234.` -- decimal
-- `0b101010` -- `binary`
+- `0b101010` -- binary
 - `0o1234` -- octal
 - `0x1234` -- hexadimical
+
+Notice that this arithmetic is not very simple when there are local labels. Here are some examples:
+
+```
+; Let's define a local label
+1:
+2:
+; Now some mathematical expressions with BR
+BR 1 ; jumps to local label 1:
+BR 1 - 2 ; jumps to local label 1: minus 2 bytes
+BR (1) ; jumps to global address 1
+BR (1 - 2) ; jumps to global address 177777
+BR (1:) ; jumps to local label 1:
+BR (1: - 2) ; jumps to local label 1: minus 2 bytes
+BR (1: - 2:) ; jumps to local label 1: minus local label 2:
+; And with JMP
+JMP 1 ; jumps to global address 1
+JMP 1 - 2 ; jumps to global address 177777
+JMP (1) ; jumps to global address 1
+JMP (1 - 2) ; jumps to global address 177777
+JMP (1:) ; jumps to local label 1:
+JMP (1: - 2) ; jumps to local label 1: minus 2 bytes
+JMP (1: - 2:) ; jumps to local label 1: minus local label 2:
+```
+
+In most cases, you only want the first commands: `BR label`, `BR label +/- offset` and `JMP global_address`. However, sometimes you might want to do some magic with offsets, so PDPy11 let's you do this by adding `:` when you want to use a local label.
 
 In `pdp11asm` compatibility mode, only `+`, `-`, `*` and `/` are supported, executed from left to right, independent of priority.
 

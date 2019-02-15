@@ -104,7 +104,7 @@ Supported commands:
 2 label types are supported:
 
 - global (e.g. `ABACABA`, `TEST`)
-- local (e.g. `1` or `0`). Currently, labels like `1$` are not supported
+- local (e.g. `1` or `0`). Labels like `1$` (i.e. digit + anything) are supported as well
 
 In addition to these 2 label types, meta-label `.` is supported, pointing to the beginning of current command, e.g.:
 
