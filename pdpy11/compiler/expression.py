@@ -43,6 +43,11 @@ class Expression(object):
 			else:
 				return self.s
 
+		def map(self, f):
+			if isinstance(self.s, int):
+				return self
+			return Expression.Get(f(self.s), self.file_id, self.line, self.column)
+
 	@staticmethod
 	def asOffset(expr):
 		if isinstance(expr, int):

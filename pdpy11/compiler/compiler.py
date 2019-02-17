@@ -1,6 +1,8 @@
 from __future__ import print_function
 import os
 import sys
+import string
+import random
 from collections import defaultdict
 from .parser import Parser, EndOfParsingError
 from .deferred import Deferred
@@ -340,8 +342,23 @@ class Compiler(object):
 			count, repeat_commands = arg
 			count = Deferred(count, int)(self)
 
-			for _ in range(count):
+			local_labels = []
+			for _, labels in repeat_commands:
+				for name in labels:
+					if ": " not in name:
+						self.err(
+							coords,
+							"Cannot define global label {name} inside .REPEAT".format(name=name)
+						)
+				local_labels += labels
+
+			repeat_id = "".join([random.choice(string.ascii_lowercase) for _ in range(8)])
+
+			for idx in range(count):
+				label_suffix = ": .REPEAT({id})[{idx}]".format(id=repeat_id, idx=idx)
 				for (command, arg), labels in repeat_commands:
+					arg = self.mapLabels(lambda label: label + label_suffix if label in local_labels else label, arg)
+					labels = [label + label_suffix for label in labels]
 					try:
 						self.handleCommand(parser, command, arg, labels)
 					except EOFError:
@@ -658,3 +675,21 @@ class Compiler(object):
 		address = self.last_static_alloc
 		self.last_static_alloc = self.last_static_alloc + byte_length
 		return address
+
+	def mapLabels(self, f, obj):
+		if isinstance(obj, list):
+			return [self.mapLabels(f, x) for x in obj]
+		elif isinstance(obj, tuple):
+			return tuple([self.mapLabels(f, x) for x in obj])
+		elif isinstance(obj, A):
+			return A(obj.reg, obj.mode, self.mapLabels(f, obj.imm))
+		elif isinstance(obj, D):
+			return D(self.mapLabels(f, obj.addr))
+		elif isinstance(obj, I):
+			return I(self.mapLabels(f, obj.value))
+		elif isinstance(obj, Expression.Get):
+			return obj.map(f)
+		elif isinstance(obj, Deferred):
+			return obj.map(lambda x: self.mapLabels(f, x))
+		else:
+			return obj
