@@ -55,7 +55,7 @@ def encodeTurboWav(link_address, bk_filename, raw):
 	# Header
 	header = u16(link_address)
 	header += u16(len(raw))
-	header += [ord(x) for x in bk_filename.rjust(16)[:16]]
+	header += [ord(x) for x in bk_filename.ljust(16)[:16]]
 	wav_data += _encodeRaw(header)
 	# Pause
 	wav_data += PAUSE
