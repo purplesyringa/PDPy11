@@ -329,6 +329,7 @@ class Compiler(object):
 					bk_filename = real_filename
 					if bk_filename.endswith(".wav"):
 						bk_filename = bk_filename[:-4]
+						bk_filename = os.path.basename(bk_filename)
 				self.build.append(("turbo-wav:" + bk_filename, real_filename))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass

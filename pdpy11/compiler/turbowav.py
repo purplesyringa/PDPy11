@@ -1,12 +1,12 @@
 def u16(n):
 	return [n & 255, n >> 8]
 
-H, L = 208, 48
+H, HS, L = 208, 200, 48
 ONE = [H, H, H, L, L]
 ZERO = [H, L, L]
-SYNC = [H, H, H, L, L, L] * 1024 + [H] * 12 + [L] * 12
+SYNC = [HS, HS, HS, L, L, L] * 1024 + [HS] * 12 + [L] * 12
 PAUSE = [L, L]
-EOF = [H] * 3 + [L] * 3 + [H] * 3 + [L] * 3
+EOF = [HS] * 3 + [L] * 3 + [HS] * 3 + [L] * 3
 
 def _encodeRaw(data):
 	raw_data = []
@@ -55,7 +55,7 @@ def encodeTurboWav(link_address, bk_filename, raw):
 	# Header
 	header = u16(link_address)
 	header += u16(len(raw))
-	header += [ord(x) for x in bk_filename.rjust(16)]
+	header += [ord(x) for x in bk_filename.rjust(16)[:16]]
 	wav_data += _encodeRaw(header)
 	# Pause
 	wav_data += PAUSE

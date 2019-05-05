@@ -329,7 +329,12 @@ class Parser(object):
 
 	def handleMakeTurboWav(self):
 		with Transaction(self, maybe=False, stage=".MAKE_TURBO_WAV"):
-			return ".MAKE_TURBO_WAV", (self.needString(maybe=True), self.needString(maybe=True))
+			real_filename = self.needString(maybe=True)
+			if real_filename is not None and self.needPunct(",", maybe=True):
+				bk_filename = self.needString()
+			else:
+				bk_filename = None
+			return ".MAKE_TURBO_WAV", (real_filename, bk_filename)
 
 	def handleConvert1251toKOI8R(self):
 		with Transaction(self, maybe=False, stage=".CONVERT1251TOKOI8R"):
