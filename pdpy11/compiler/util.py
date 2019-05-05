@@ -1,17 +1,18 @@
 from __future__ import print_function
 import sys
 from .deferred import Deferred
+from .turbowav import encodeTurboWav
 
-def encodeBinRawSav(output_format, raw, link_address):
+def encodeBinRawSavWav(output_format, raw, link_address):
 	if output_format == "bin":
-		header = [
+		raw = [
 			link_address & 0xFF,
 			link_address >> 8,
 			len(raw) & 0xFF,
 			len(raw) >> 8
-		]
+		] + raw
 	elif output_format == "sav":
-		header = [0] * 32 + [
+		raw = [0] * 32 + [
 			link_address & 0xFF,
 			link_address >> 8,
 			0o1000 & 0xFF,
@@ -22,16 +23,17 @@ def encodeBinRawSav(output_format, raw, link_address):
 			0,
 			(link_address + len(raw)) & 0xFF,
 			(link_address + len(raw)) >> 8
-		] + [0] * 214 + [0] * (link_address - 256)
-	else:
-		header = []
+		] + [0] * 214 + [0] * (link_address - 256) + raw
+	elif output_format.startswith("turbo-wav:"):
+		bk_filename = output_format[len("turbo-wav:"):]
+		raw = encodeTurboWav(link_address, bk_filename, raw)
 
 	if sys.version_info[0] == 2:
 		# Python 2
-		return "".join([chr(char) for char in header + raw])
+		return "".join([chr(char) for char in raw])
 	else:
 		# Python 3
-		return bytes(header + raw)
+		return bytes(raw)
 
 
 def int8ToUint8(int8):

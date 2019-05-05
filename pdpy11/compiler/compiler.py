@@ -98,7 +98,9 @@ class Compiler(object):
 			parser = Parser(file, code, syntax=self.syntax)
 
 			for (command, arg), labels in parser.parse():
-				if command == ".MAKE_RAW" or command == ".MAKE_BIN" or command == ".MAKE_SAV":
+				if command in (
+					".MAKE_RAW", ".MAKE_BIN", ".MAKE_SAV", ".MAKE_TURBO_WAV"
+				):
 					to_make.add(file)
 
 		# All these files are separate project roots,
@@ -315,6 +317,19 @@ class Compiler(object):
 						arg = arg[:-4]
 					arg += ".sav"
 				self.build.append(("sav", arg))
+		elif command == ".MAKE_TURBO_WAV":
+			if parser.file == self.include_root:
+				real_filename, bk_filename = arg
+				if real_filename is None:
+					real_filename = parser.file
+					if real_filename.endswith(".mac"):
+						real_filename = real_filename[:-4]
+					real_filename += ".wav"
+				if bk_filename is None:
+					bk_filename = real_filename
+					if bk_filename.endswith(".wav"):
+						bk_filename = bk_filename[:-4]
+				self.build.append(("turbo-wav:" + bk_filename, real_filename))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass
 		elif command == ".DECIMALNUMBERS":

@@ -110,6 +110,9 @@ class Parser(object):
 			elif literal == "MAKE_SAV":
 				yield self.handleMakeSav(), labels
 				return
+			elif literal == "MAKE_TURBO_WAV":
+				yield self.handleMakeTurboWav(), labels
+				return
 			elif literal == "CONVERT1251TOKOI8R":
 				yield self.handleConvert1251toKOI8R(), labels
 				return
@@ -323,6 +326,10 @@ class Parser(object):
 	def handleMakeSav(self):
 		with Transaction(self, maybe=False, stage=".MAKE_SAV"):
 			return ".MAKE_SAV", self.needString(maybe=True)
+
+	def handleMakeTurboWav(self):
+		with Transaction(self, maybe=False, stage=".MAKE_TURBO_WAV"):
+			return ".MAKE_TURBO_WAV", (self.needString(maybe=True), self.needString(maybe=True))
 
 	def handleConvert1251toKOI8R(self):
 		with Transaction(self, maybe=False, stage=".CONVERT1251TOKOI8R"):

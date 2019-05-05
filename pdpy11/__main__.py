@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import sys
 from .compiler import Compiler
-from .compiler.util import encodeBinRawSav, setErrorMode
+from .compiler.util import encodeBinRawSavWav, setErrorMode
 
 if len(sys.argv) < 2:
 	print("PDPy11 Compiler")
@@ -11,9 +11,14 @@ if len(sys.argv) < 2:
 	print("Usage:")
 	print("""pdpy11 file.mac                 Compile file.mac to file.bin                    """)
 	print("""pdpy11 file.mac --bin           Compile file.mac to file.bin, replaces          """)
-	print("""                                make_raw / make_bk0010_rom / make_bin / make_sav""")
+	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
+	print("""                                make_sav / make_turbo_wav                       """)
 	print("""pdpy11 file.mac --sav           Compile file.mac to file.sav, replaces          """)
-	print("""                                make_raw / make_bk0010_rom / make_bin / make_sav""")
+	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
+	print("""                                make_sav / make_turbo_wav                       """)
+	print("""pdpy11 file.mac --turbo-wav     Compile file.mac to file.sav, replaces          """)
+	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
+	print("""                                make_sav / make_turbo_wav                       """)
 	print("""pdpy11 file.mac --raw           Compile file.mac to file, without bin header    """)
 	print("""pdpy11 a b c                    Compile & link files a, b and c to a.bin        """)
 	print("""pdpy11 a b c -o proj --raw      Compile & link files a, b and c to proj (w/o bin""")
@@ -80,6 +85,10 @@ if len(sys.argv) < 2:
 	print("""make_bin ["..."]                resulting filename.                             """)
 	print("""make_sav ["..."]                Same as --sav. If string is passed, this is the """)
 	print("""                                resulting filename.                             """)
+	print("""make_turbo_wav ["..." ["..."]]  Same as --turbo-wav. If a string is passed, this""")
+	print("""                                is the resulting filename. If two strings are   """)
+	print("""                                passed, the first one is the real filename and  """)
+	print("""                                the second one is BK filename.                  """)
 	print("""convert1251toKOI8R {ON|OFF}     Ignored                                         """)
 	print("""decimalnumbers {ON|OFF}         If ON, N is the same as N., and you must use    """)
 	print("""                                0oN or 0N or No for octal. This does not affect """)
@@ -97,8 +106,8 @@ if len(sys.argv) < 2:
 	print("Project mode")
 	print("""PDPy11 can compile projects. Use `--project directory` CLI argument for this.   """)
 	print("""PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` --  """)
-	print("""see below) containing `make_raw`, `make_bk0010_rom`, `make_bin` or `make_sav`   """)
-	print("""directive. Such files are called "include roots".                               """)
+	print("""see below) containing `make_raw`, `make_bk0010_rom`, `make_bin`, `make_sav` or  """)
+	print("""`make_turbo_wav` directive. Such files are called "include roots".              """)
 	print()
 	print("""In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which   """)
 	print("""means to include all `.mac` files inside the directory (except files mentioned  """)
@@ -138,6 +147,8 @@ while len(args):
 		output_format = "sav"
 	elif arg == "--raw":
 		output_format = "raw"
+	elif arg == "--turbo-wav":
+		output_format = "turbo-wav"
 	elif arg == "--lst":
 		do_lst = True
 	elif arg == "--project":
@@ -204,6 +215,8 @@ if output is None:
 			output += ".bin"
 		elif output_format == "sav":
 			output += ".sav"
+		elif output_format == "turbo-wav":
+			output += ".wav"
 		else:
 			output += ".raw"
 	else:
@@ -217,6 +230,8 @@ if output is None:
 			output += ".bin"
 		elif output_format == "sav":
 			output += ".sav"
+		elif output_format == "turbo-wav":
+			output += ".wav"
 
 file_list = []
 
@@ -284,26 +299,26 @@ if project is not None:
 	lstname = project
 	for ext, file, output, link_address in compiler.buildProject():
 		with open(file, "wb") as f:
-			f.write(encodeBinRawSav(ext, output, link_address))
+			f.write(encodeBinRawSavWav(ext, output, link_address))
 else:
 	# Single file mode
 	lstname = files[0]
 	if lstname.endswith(".mac"):
 		lstname = lstname[:-4]
 	for file in files:
-		compiler.include_root = file
+		compiler.include_root = os.path.abspath(file)
 		compiler.addFile(file)
 
 	out_files = compiler.link()
 
 	for ext, file in out_files:
 		with open(file, "wb") as f:
-			f.write(encodeBinRawSav(ext, compiler.output, compiler.link_address))
+			f.write(encodeBinRawSavWav(ext, compiler.output, compiler.link_address))
 
 	if len(out_files) == 0:
 		# No output file
 		with open(output, "wb") as f:
-			f.write(encodeBinRawSav(output_format or "bin", compiler.output, compiler.link_address))
+			f.write(encodeBinRawSavWav(output_format or "bin", compiler.output, compiler.link_address))
 
 if do_lst:
 	with open(lstname + ".lst", "w") as f:
