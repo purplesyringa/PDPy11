@@ -5,7 +5,7 @@ H, HS, L = 208, 200, 48
 ONE = [H, H, H, L, L]
 ZERO = [H, L, L]
 SYNC = [HS, HS, HS, L, L, L] * 1024 + [HS] * 12 + [L] * 12
-PAUSE = [L, L]
+PAUSE = [L, L, L, L]
 EOF = [HS] * 3 + [L] * 3 + [HS] * 3 + [L] * 3
 
 def _encodeRaw(data):
@@ -61,6 +61,8 @@ def encodeTurboWav(link_address, bk_filename, raw):
 	wav_data += PAUSE
 	# File data
 	wav_data += _encodeRaw(raw)
+	# A small pause
+	wav_data += PAUSE
 	# Checksum
 	checksum = 0
 	for c in raw:
