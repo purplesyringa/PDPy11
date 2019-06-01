@@ -4,9 +4,9 @@ def u16(n):
 H, HS, L = 208, 200, 48
 ONE = [HS, HS, L, L] + [H] * 4 + [L] * 4
 ZERO = [HS, HS, L, L] + [H] * 2 + [L] * 2
-SYNC = [HS, HS, L, L] * 4096 + [HS] * 8 + [L] * 8 + [H] * 4 + [L] * 4
-PAUSE = [HS, HS, L, L] * 9 + [HS] * 8 + [L] * 8 + [H] * 4 + [L] * 4
-EOF = [HS, HS, L, L] * 128
+SYNC = [HS, HS, L, L] * 4096 + [HS] * 8 + [L] * 8 + [H] * 4 + [L] * 4 + [HS, HS, L, L] * 10 + [HS] * 8 + [L] * 8 + [H] * 4 + [L] * 4
+PAUSE = [HS, HS, L, L] * 10 + [HS] * 8 + [L] * 8 + [H] * 4 + [L] * 4
+EOF = [HS, HS, L, L] * 200
 
 def _encodeRaw(data):
 	raw_data = []
@@ -71,4 +71,4 @@ def encodeWav(link_address, bk_filename, raw):
 	# EOF
 	wav_data += EOF
 
-	return _encodeWav(wav_data, 40000)
+	return _encodeWav(wav_data, 21428)
