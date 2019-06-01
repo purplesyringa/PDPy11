@@ -322,6 +322,12 @@ class Deferred(object):
 
 	@classmethod
 	def If(cls, cond, true, false):
+		if not isinstance(cond, Deferred) and not callable(cond):
+			if cond:
+				return cls(true)
+			else:
+				return cls(false)
+
 		if cond.cached:
 			if cond.cache:
 				return cls(true)
