@@ -232,11 +232,11 @@ class Deferred(object):
 						return
 					elif optext == "|":
 						# Optimizable by |
-						self.pending_math[-1][2] &= other
+						self.pending_math[-1][2] |= other
 						return
 					elif optext == "^":
 						# Optimizable by ^
-						self.pending_math[-1][2] &= other
+						self.pending_math[-1][2] ^= other
 						return
 
 		self.pending_math.append([optext, op, other, reverse])
