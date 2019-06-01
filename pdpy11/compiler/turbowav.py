@@ -1,7 +1,5 @@
-def u16(n):
-	return [n & 255, n >> 8]
+from .wav import u16, H, HS, L, _encodeWav
 
-H, HS, L = 208, 200, 48
 ONE = [H, H, H, L, L]
 ZERO = [H, L, L]
 SYNC = [HS, HS, HS, L, L, L] * 1024 + [HS] * 12 + [L] * 12
@@ -16,36 +14,6 @@ def _encodeRaw(data):
 			byte >>= 1
 			raw_data += ONE if bit == 1 else ZERO
 	return raw_data
-
-def _encodeWav(data, sample_rate):
-	total_size = 36 + len(data)
-	return [
-		82, 73, 70, 70,               # "RIFF"
-		total_size & 0xFF,            # chunk size
-		(total_size >> 8) & 0xFF,
-		(total_size >> 16) & 0xFF,
-		(total_size >> 24) & 0xFF,
-		87, 65, 86, 69,               # "WAVE"
-		102, 109, 116, 32,            # "fmt "
-		16, 0, 0, 0,                  # sub chunk 1 size (always 16)
-		1, 0,                         # PCM format
-		1, 0,                         # channel count
-		sample_rate & 0xFF,           # sample rate in samples
-		(sample_rate >> 8) & 0xFF,
-		(sample_rate >> 16) & 0xFF,
-		(sample_rate >> 24) & 0xFF,
-		sample_rate & 0xFF,           # sample rate in bytes
-		(sample_rate >> 8) & 0xFF,
-		(sample_rate >> 16) & 0xFF,
-		(sample_rate >> 24) & 0xFF,
-		1, 0,                         # block align
-		8, 0,                         # sound depth (8 bits)
-		100, 97, 116, 97,             # "data" in ASCII
-		len(data) & 0xFF,             # size of 1st subchunk
-		(len(data) >> 8) & 0xFF,
-		(len(data) >> 16) & 0xFF,
-		(len(data) >> 24) & 0xFF
-	] + data
 
 def encodeTurboWav(link_address, bk_filename, raw):
 	wav_data = []

@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 from .deferred import Deferred
 from .turbowav import encodeTurboWav
+from .wav import encodeWav
 
 def encodeBinRawSavWav(output_format, raw, link_address):
 	if output_format == "bin":
@@ -27,6 +28,9 @@ def encodeBinRawSavWav(output_format, raw, link_address):
 	elif output_format.startswith("turbo-wav:"):
 		bk_filename = output_format[len("turbo-wav:"):]
 		raw = encodeTurboWav(link_address, bk_filename, raw)
+	elif output_format.startswith("wav:"):
+		bk_filename = output_format[len("wav:"):]
+		raw = encodeWav(link_address, bk_filename, raw)
 
 	if sys.version_info[0] == 2:
 		# Python 2

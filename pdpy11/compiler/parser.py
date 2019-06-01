@@ -113,6 +113,9 @@ class Parser(object):
 			elif literal == "MAKE_TURBO_WAV":
 				yield self.handleMakeTurboWav(), labels
 				return
+			elif literal == "MAKE_WAV":
+				yield self.handleMakeWav(), labels
+				return
 			elif literal == "CONVERT1251TOKOI8R":
 				yield self.handleConvert1251toKOI8R(), labels
 				return
@@ -335,6 +338,15 @@ class Parser(object):
 			else:
 				bk_filename = None
 			return ".MAKE_TURBO_WAV", (real_filename, bk_filename)
+
+	def handleMakeWav(self):
+		with Transaction(self, maybe=False, stage=".MAKE_WAV"):
+			real_filename = self.needString(maybe=True)
+			if real_filename is not None and self.needPunct(",", maybe=True):
+				bk_filename = self.needString()
+			else:
+				bk_filename = None
+			return ".MAKE_WAV", (real_filename, bk_filename)
 
 	def handleConvert1251toKOI8R(self):
 		with Transaction(self, maybe=False, stage=".CONVERT1251TOKOI8R"):

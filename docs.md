@@ -78,7 +78,7 @@ To set output filename, use: `pdpy11 filename.mac -o output`. It will be outputt
 
 To set output format, both CLI arguments and meta-commands can be used.
 
-If at least one meta-command is used inside file (`make_bk0010_rom`/`make_bin` = `--bin` or `make_raw` = `--raw` or `make_sav` = `--sav` or `make_turbo_wav` = `--turbo-wav`) is used, the result won't be outputted to `filename`, `filename.bin` or `filename.sav`. To force it as well as `make_bk0010_rom`/`make_bin`, `make_raw` and `make_sav`, add `--bin` or `--raw` or `--sav` CLI argument.
+If at least one meta-command is used inside file (`make_bk0010_rom`/`make_bin` = `--bin` or `make_raw` = `--raw` or `make_sav` = `--sav` or `make_turbo_wav` = `--turbo-wav` or `make_wav` = `--wav`) is used, the result won't be outputted to `filename`, `filename.bin` or `filename.sav`. To force it as well as `make_bk0010_rom`/`make_bin`, `make_raw` and `make_sav`, add `--bin` or `--raw` or `--sav` CLI argument.
 
 To set link address if it's not mentioned in `.mac` file, use `--link N` argument. It has less priority than `.LINK` or `.LA` or `ORG`.
 
@@ -231,6 +231,10 @@ Output resulting file (since link address) with `.sav` header to `filename`, or 
 ### `make_turbo_wav [/filename/]`
 
 Output resulting file (since link address) in turbo wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30390-zagruzka-s-iphone-na-bk-0010-v-8-raz-bystree.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed.
+
+### `make_wav [/filename/]`
+
+Output resulting file (since link address) in classic wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30298-zagruzka-s-magnitofona-na-bk-0011%28m%29.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed.
 
 ### `convert1251toKOI8R boolean`
 
@@ -429,7 +433,7 @@ As you might need `SEL1` & `SEL2` in several files, you add `.ONCE` to **sel.mac
 
 ## Project mode
 
-PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw`, `make_bk0010_rom`, `make_bin`, `make_sav` or `make_turbo_wav` directive. Such files are called "include roots".
+PDPy11 can compile projects. Use `--project directory` CLI argument for this. PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` -- see below) containing `make_raw`, `make_bk0010_rom`, `make_bin`, `make_sav`, `make_turbo_wav` or `make_wav` directive. Such files are called "include roots".
 
 Example:
 

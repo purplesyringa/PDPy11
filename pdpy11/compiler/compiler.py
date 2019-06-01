@@ -99,7 +99,7 @@ class Compiler(object):
 
 			for (command, arg), labels in parser.parse():
 				if command in (
-					".MAKE_RAW", ".MAKE_BIN", ".MAKE_SAV", ".MAKE_TURBO_WAV"
+					".MAKE_RAW", ".MAKE_BIN", ".MAKE_SAV", ".MAKE_TURBO_WAV", ".MAKE_WAV"
 				):
 					to_make.add(file)
 
@@ -317,7 +317,7 @@ class Compiler(object):
 						arg = arg[:-4]
 					arg += ".sav"
 				self.build.append(("sav", arg))
-		elif command == ".MAKE_TURBO_WAV":
+		elif command == ".MAKE_TURBO_WAV" or command == ".MAKE_WAV":
 			if parser.file == self.include_root:
 				real_filename, bk_filename = arg
 				if real_filename is None:
@@ -330,7 +330,8 @@ class Compiler(object):
 					if bk_filename.endswith(".wav"):
 						bk_filename = bk_filename[:-4]
 						bk_filename = os.path.basename(bk_filename)
-				self.build.append(("turbo-wav:" + bk_filename, real_filename))
+				pref = "turbo-wav:" if command == ".MAKE_TURBO_WAV" else "wav:"
+				self.build.append((pref + bk_filename, real_filename))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass
 		elif command == ".DECIMALNUMBERS":

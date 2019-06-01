@@ -12,13 +12,16 @@ if len(sys.argv) < 2:
 	print("""pdpy11 file.mac                 Compile file.mac to file.bin                    """)
 	print("""pdpy11 file.mac --bin           Compile file.mac to file.bin, replaces          """)
 	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
-	print("""                                make_sav / make_turbo_wav                       """)
+	print("""                                make_sav / make_turbo_wav / make_wav            """)
 	print("""pdpy11 file.mac --sav           Compile file.mac to file.sav, replaces          """)
 	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
-	print("""                                make_sav / make_turbo_wav                       """)
-	print("""pdpy11 file.mac --turbo-wav     Compile file.mac to file.sav, replaces          """)
+	print("""                                make_sav / make_turbo_wav / make_wav            """)
+	print("""pdpy11 file.mac --turbo-wav     Compile file.mac to file.wav, replaces          """)
 	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
-	print("""                                make_sav / make_turbo_wav                       """)
+	print("""                                make_sav / make_turbo_wav / make_wav            """)
+	print("""pdpy11 file.mac --wav           Compile file.mac to file.wav, replaces          """)
+	print("""                                make_raw / make_bk0010_rom / make_bin /         """)
+	print("""                                make_sav / make_turbo_wav / make_wav            """)
 	print("""pdpy11 file.mac --raw           Compile file.mac to file, without bin header    """)
 	print("""pdpy11 a b c                    Compile & link files a, b and c to a.bin        """)
 	print("""pdpy11 a b c -o proj --raw      Compile & link files a, b and c to proj (w/o bin""")
@@ -89,6 +92,10 @@ if len(sys.argv) < 2:
 	print("""                                is the resulting filename. If two strings are   """)
 	print("""                                passed, the first one is the real filename and  """)
 	print("""                                the second one is BK filename.                  """)
+	print("""make_wav ["..." ["..."]]        Same as --wav. If a string is passed, this is   """)
+	print("""                                the resulting filename. If two strings are      """)
+	print("""                                passed, the first one is the real filename and  """)
+	print("""                                the second one is BK filename.                  """)
 	print("""convert1251toKOI8R {ON|OFF}     Ignored                                         """)
 	print("""decimalnumbers {ON|OFF}         If ON, N is the same as N., and you must use    """)
 	print("""                                0oN or 0N or No for octal. This does not affect """)
@@ -106,8 +113,8 @@ if len(sys.argv) < 2:
 	print("Project mode")
 	print("""PDPy11 can compile projects. Use `--project directory` CLI argument for this.   """)
 	print("""PDPy11 will compile all files (except the ones mentioned in `.pdpy11ignore` --  """)
-	print("""see below) containing `make_raw`, `make_bk0010_rom`, `make_bin`, `make_sav` or  """)
-	print("""`make_turbo_wav` directive. Such files are called "include roots".              """)
+	print("""see below) containing `make_raw`, `make_bk0010_rom`, `make_bin`, `make_sav`,    """)
+	print("""`make_turbo_wav` or `make_wav` directive. Such files are called "include roots".""")
 	print()
 	print("""In project mode, `.INCLUDE` and `.RAW_INCLUDE` can include directories, which   """)
 	print("""means to include all `.mac` files inside the directory (except files mentioned  """)
@@ -149,6 +156,8 @@ while len(args):
 		output_format = "raw"
 	elif arg == "--turbo-wav":
 		output_format = "turbo-wav"
+	elif arg == "--wav":
+		output_format = "wav"
 	elif arg == "--lst":
 		do_lst = True
 	elif arg == "--project":
@@ -215,7 +224,7 @@ if output is None:
 			output += ".bin"
 		elif output_format == "sav":
 			output += ".sav"
-		elif output_format == "turbo-wav":
+		elif output_format == "turbo-wav" or output_format == "wav":
 			output += ".wav"
 		else:
 			output += ".raw"
@@ -230,7 +239,7 @@ if output is None:
 			output += ".bin"
 		elif output_format == "sav":
 			output += ".sav"
-		elif output_format == "turbo-wav":
+		elif output_format == "turbo-wav" or output_format == "wav":
 			output += ".wav"
 
 file_list = []
