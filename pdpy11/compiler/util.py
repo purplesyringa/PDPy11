@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import os
 from .deferred import Deferred
 from .turbowav import encodeTurboWav
 from .wav import encodeWav
@@ -58,6 +59,73 @@ def int8ToUint8(int8):
 def octal(n):
 	# Compatible with Python 2 and Python 3
 	return oct(int(n))[1:].replace("o", "")
+
+
+
+def open_device(name, mode="r"):
+	if name == "~speaker":
+		# A special file-like object
+		class Speaker:
+			def __init__(self):
+				self.audio = b""
+			def write(self, bytes):
+				self.audio += bytes
+			def close(self):
+				# Yeah, we have to make it crossplatform
+				if sys.platform == "win32":
+					import winsound
+					winsound.PlaySound(self.audio, winsound.SND_MEMORY)
+				elif sys.platform.startswith("linux"):
+					def f(n):
+						return ord(n) if isinstance(n, str) else n
+					sample_rate = 0
+					sample_rate |= f(self.audio[24])
+					sample_rate |= f(self.audio[25]) << 8
+					sample_rate |= f(self.audio[26]) << 16
+					sample_rate |= f(self.audio[27]) << 24
+					raw = self.audio[44:]
+
+					try:
+						os.stat("/dev/dsp")
+						# Worked, using OSS
+						import ossaudiodev
+						with ossaudiodev.open("w") as audio:
+							audio.setfmt(ossaudiodev.AFMT_U8)
+							audio.channels(1)
+							audio.speed(sample_rate)
+							audio.write(raw)
+					except IOError:
+						# Didn't work, using PulseAudio
+						import ctypes
+						import struct
+						class Spec(ctypes.Structure):
+							_fields_ = (
+								("format", ctypes.c_int),
+								("rate", ctypes.c_uint32),
+								("channels", ctypes.c_uint8)
+							)
+						spec = Spec(0, sample_rate, 1)
+						pa = ctypes.cdll.LoadLibrary("libpulse-simple.so.0")
+						s = pa.pa_simple_new(None, "PDPy11", 1, None, "PDPy11", ctypes.byref(spec), None, None, None)
+						pa.pa_simple_write(s, raw, len(raw), None)
+						pa.pa_simple_drain(s)
+						pa.pa_simple_free(s)
+				elif sys.platform == "darwin":
+					import subprocess
+					import tempfile
+					path = tempfile.mktemp()
+					with open(path, "w") as f:
+						f.write(self.audio)
+					subprocess.Popen(["afplay", "-q", "1", path]).wait()
+					os.unlink(path)
+			def __enter__(self):
+				return self
+			def __exit__(self, err_cls, err, traceback):
+				self.close()
+				return False
+		return Speaker()
+	else:
+		return open(name, mode)
 
 
 error_mode_sublime = False

@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import sys
 from .compiler import Compiler
-from .compiler.util import encodeBinRawSavWav, setErrorMode
+from .compiler.util import encodeBinRawSavWav, setErrorMode, open_device
 
 if len(sys.argv) < 2:
 	print("PDPy11 Compiler")
@@ -307,7 +307,7 @@ if project is not None:
 	# Project mode
 	lstname = project
 	for ext, file, output, link_address in compiler.buildProject():
-		with open(file, "wb") as f:
+		with open_device(file, "wb") as f:
 			f.write(encodeBinRawSavWav(ext, output, link_address))
 else:
 	# Single file mode
@@ -321,12 +321,12 @@ else:
 	out_files = compiler.link()
 
 	for ext, file in out_files:
-		with open(file, "wb") as f:
+		with open_device(file, "wb") as f:
 			f.write(encodeBinRawSavWav(ext, compiler.output, compiler.link_address))
 
 	if len(out_files) == 0:
 		# No output file
-		with open(output, "wb") as f:
+		with open_device(output, "wb") as f:
 			f.write(encodeBinRawSavWav(output_format or "bin", compiler.output, compiler.link_address))
 
 if do_lst:
