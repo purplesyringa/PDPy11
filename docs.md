@@ -218,25 +218,25 @@ Output `string`, and then zero byte.
 
 ### `make_raw [/filename/]`
 
-Output resulting file (since link address) to `filename`, or to compilable-file-without-mac-extension if filename is not passed.
+Output resulting file to `filename`, or to compilable-file-without-mac-extension if filename is not passed.
 
 ### `make_bk0010_rom [/filename/]` / `make_bin [/filename/]`
 
-Output resulting file (since link address) with binary header to `filename`, or to compilable-file-without-mac-extension + `.bin` if filename is not passed.
+Output resulting file with binary header to `filename`, or to compilable-file-without-mac-extension + `.bin` if filename is not passed.
 
 ### `make_sav [/filename/]`
 
-Output resulting file (since link address) with `.sav` header to `filename`, or to compilable-file-without-mac-extension + `.sav` if filename is not passed.
+Output resulting file with `.sav` header to `filename`, or to compilable-file-without-mac-extension + `.sav` if filename is not passed.
 
 ### `make_turbo_wav [/filename/ [/title/]]`
 
-Output resulting file (since link address) in turbo wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30390-zagruzka-s-iphone-na-bk-0010-v-8-raz-bystree.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed. If `title` is passed as well, it's the name of the file read by BK.
+Output resulting file in turbo wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30390-zagruzka-s-iphone-na-bk-0010-v-8-raz-bystree.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed. If `title` is passed as well, it's the name of the file read by BK.
 
 If the filename equals `~speaker`, the file is played.
 
 ### `make_wav [/filename/ [/title/]]`
 
-Output resulting file (since link address) in classic wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30298-zagruzka-s-magnitofona-na-bk-0011%28m%29.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed. If `title` is passed as well, it's the name of the file read by BK.
+Output resulting file in classic wav format (see [this zx-pk.ru topic](https://zx-pk.ru/threads/30298-zagruzka-s-magnitofona-na-bk-0011%28m%29.html)) to `filename`, or to compilable-file-without-mac-extension + `.wav` if filename is not passed. If `title` is passed as well, it's the name of the file read by BK.
 
 If the filename equals `~speaker`, the file is played.
 
