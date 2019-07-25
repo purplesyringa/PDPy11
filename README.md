@@ -87,7 +87,7 @@ path-to/test.mac
 
 Standard PDP-11 assembler syntax is used, i.e.:
 
-Strings can be surrounded by `"`, `'` or `/`.
+Strings can be surrounded by `"`, `'` or `/`. Literal strings can be joined together: `"A" "B"` is the same as `"AB"`. `<n>` syntax can be used to put a raw character, e.g.: `"A"<12>"B"` inserts a newline between `"A"` and `"B"`.
 
 Registers: `R0..R7`, with `SP = R6` and `PC = R7`.
 
