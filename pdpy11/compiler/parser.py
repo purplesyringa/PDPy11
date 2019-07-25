@@ -969,60 +969,74 @@ class Parser(object):
 		# Return string between " and ", or / and /
 
 		with Transaction(self, maybe=maybe, stage="string") as t:
-			# Skip whitespace
-			self.skipWhitespace()
-
-			punct = ""
-			if self.code[self.pos] in "\"'/":
-				punct = self.code[self.pos]
-				self.pos += 1
-				t.noRollback()
-			else:
-				raise InvalidError("Expected string, got '{char}'".format(char=self.code[self.pos]))
-
+			mapped_at_least_once = False
 			string = ""
 
 			while True:
-				try:
-					#if self.code[self.pos] == "\\":
-					#	# Escape character
-					#	self.pos += 1
-					#
-					#	if self.code[self.pos] in "nN":
-					#		self.pos += 1
-					#		string += "\n"
-					#	elif self.code[self.pos] in "rR":
-					#		self.pos += 1
-					#		string += "\r"
-					#	elif self.code[self.pos] in "tT":
-					#		self.pos += 1
-					#		string += "\t"
-					#	elif self.code[self.pos] in "sS":
-					#		self.pos += 1
-					#		string += " "
-					#	elif self.code[self.pos] in "xX":
-					#		self.pos += 1
-					#		num = self.code[self.pos]
-					#		self.pos += 1
-					#		num += self.code[self.pos]
-					#		self.pos += 1
-					#		string += chr(int(num, 16))
-					#	elif self.code[self.pos] in "\\\"/":
-					#		self.pos += 1
-					#		string += self.code[self.pos]
-					#	else:
-					#		raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{escape}'".format(escape=self.code[self.pos]))
-					if self.code[self.pos] == punct:
-						# EOS
-						self.pos += 1
+				# Skip whitespace
+				self.skipWhitespace()
+
+				if self.needChar("<", maybe=True):
+					# Raw code
+					code = self.needInteger()
+					string += chr(code)
+					self.needChar(">")
+					mapped_at_least_once = True
+					continue
+
+				punct = ""
+				if self.code[self.pos] in "\"'/":
+					punct = self.code[self.pos]
+					self.pos += 1
+					t.noRollback()
+				else:
+					if mapped_at_least_once:
 						return string
 					else:
-						string += self.code[self.pos]
-						self.pos += 1
-				except IndexError:
-					# EOF
-					with Transaction(self, maybe=False):
-						raise InvalidError("Expected string terminator, got EOF")
+						raise InvalidError("Expected string, got '{char}'".format(char=self.code[self.pos]))
+
+				while True:
+					try:
+						#if self.code[self.pos] == "\\":
+						#	# Escape character
+						#	self.pos += 1
+						#
+						#	if self.code[self.pos] in "nN":
+						#		self.pos += 1
+						#		string += "\n"
+						#	elif self.code[self.pos] in "rR":
+						#		self.pos += 1
+						#		string += "\r"
+						#	elif self.code[self.pos] in "tT":
+						#		self.pos += 1
+						#		string += "\t"
+						#	elif self.code[self.pos] in "sS":
+						#		self.pos += 1
+						#		string += " "
+						#	elif self.code[self.pos] in "xX":
+						#		self.pos += 1
+						#		num = self.code[self.pos]
+						#		self.pos += 1
+						#		num += self.code[self.pos]
+						#		self.pos += 1
+						#		string += chr(int(num, 16))
+						#	elif self.code[self.pos] in "\\\"/":
+						#		self.pos += 1
+						#		string += self.code[self.pos]
+						#	else:
+						#		raise InvalidError("Expected \\n, \\r, \\t, \\s, \\\\, \\\", \\/ or \\xNN, got '\\{escape}'".format(escape=self.code[self.pos]))
+						if self.code[self.pos] == punct:
+							# End of string
+							self.pos += 1
+							mapped_at_least_once = True
+							break
+						else:
+							string += self.code[self.pos]
+							self.pos += 1
+					except IndexError:
+						# EOF
+						with Transaction(self, maybe=False):
+							raise InvalidError("Expected string terminator, got EOF")
 
 
 	def needBool(self, maybe=False):
