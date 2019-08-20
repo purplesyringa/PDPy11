@@ -81,6 +81,7 @@ if len(sys.argv) < 2:
 	print("""ALIGN n                         Align . by n, ceiling if n is not a divisor of  """)
 	print("""                                ".".                                            """)
 	print(""".ASCII "..."                    Emits string                                    """)
+	print(""".ASCII "..." <12> "..."         Emits a string, then a newline, then a string   """)
 	print(""".ASCIZ "..."                    Emits string, plus zero byte                    """)
 	print("""make_raw ["..."]                Same as --raw. If string is passed, this is the """)
 	print("""                                resulting filename.                             """)
