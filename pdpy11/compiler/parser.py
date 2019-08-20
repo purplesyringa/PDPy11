@@ -727,7 +727,15 @@ class Parser(object):
 				# there must be a colon next to it to be handled as a label
 				with Transaction(self, maybe=True):
 					local_label = self.needIntegerLabel()
-					if local_label.isdigit():
+					# Handle raw integers (e.g. 123) which shouldn't be labels
+					# by default, as well as 0x..., 0b... and 0o... labels which
+					# are most likely meant to be integers
+					if (
+						local_label.isdigit() or
+						local_label.lower().startswith("0x") or
+						local_label.lower().startswith("0b") or
+						local_label.lower().startswith("0o")
+					):
 						self.needPunct(":")
 					return Expression(
 						"{last_label}: {local_label}".format(last_label=self.last_label, local_label=local_label),
