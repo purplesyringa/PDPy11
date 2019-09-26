@@ -786,7 +786,7 @@ class Parser(object):
 
 		with Transaction(self, maybe=maybe, stage="literal"):
 			# Skip whitespace
-			self.skipWhitespace()
+			self.skipWhitespace(allow_eof=False)
 
 			literal = ""
 
@@ -818,7 +818,9 @@ class Parser(object):
 			# Skip whitespace
 			self.skipWhitespace()
 
-			if self.code[self.pos] == char:
+			if self.isEOF():
+				raise InvalidError("Expected '{exp}', got EOF".format(exp=char))
+			elif self.code[self.pos] == char:
 				self.pos += 1
 				return char
 			else:
@@ -992,6 +994,12 @@ class Parser(object):
 					mapped_at_least_once = True
 					continue
 
+				if self.isEOF():
+					if mapped_at_least_once:
+						return string
+					else:
+						raise InvalidError("Expected string, got EOF")
+
 				punct = ""
 				if self.code[self.pos] in "\"'/":
 					punct = self.code[self.pos]
@@ -1072,14 +1080,14 @@ class Parser(object):
 
 		# Skip whitespace
 		try:
-			self.skipWhitespace()
+			self.skipWhitespace(allow_eof=False)
 		except InvalidError:
 			return True
 
 		self.pos = pos
 		return False
 
-	def skipWhitespace(self):
+	def skipWhitespace(self, allow_eof=True):
 		try:
 			skipped = True
 			while skipped:
@@ -1104,7 +1112,8 @@ class Parser(object):
 					while self.code[self.pos] != "\n":
 						self.pos += 1
 		except IndexError:
-			raise InvalidError("Got EOF")
+			if not allow_eof:
+				raise InvalidError("Unexpected EOF")
 
 
 	def getCurrentCommandCoords(self):
