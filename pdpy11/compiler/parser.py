@@ -900,52 +900,46 @@ class Parser(object):
 					else:
 						t.noRollback()
 						raise InvalidError("Two (or more) radix specifiers")
-				elif self.needChar("B", maybe=True):
-					# Binary
-					if integer != "0":
-						raise InvalidError("Expected integer, got '{int}b'".format(int=integer))
-					else:
-						if radix is None:
+
+				if radix is None:
+					if self.needChar("B", maybe=True):
+						# Binary
+						if integer != "0":
+							raise InvalidError("Expected integer, got '{int}b'".format(int=integer))
+						else:
 							radix = 2
 							t.noRollback()
+							continue
+					elif self.needChar("O", maybe=True):
+						# Octal
+						if integer != "0":
+							raise InvalidError("Expected integer, got '{int}o'".format(int=integer))
 						else:
-							t.noRollback()
-							raise InvalidError("Two (or more) radix specifiers")
-				elif self.needChar("O", maybe=True):
-					# Octal
-					if integer != "0":
-						raise InvalidError("Expected integer, got '{int}o'".format(int=integer))
-					else:
-						if radix is None:
 							radix = 8
 							t.noRollback()
+							continue
+					elif self.needChar("X", maybe=True):
+						# Hexadimical
+						if integer != "0":
+							raise InvalidError("Expected integer, got '{int}x'".format(int=integer))
 						else:
+							radix = 16
 							t.noRollback()
-							raise InvalidError("Two (or more) radix specifiers")
-				elif self.needChar("X", maybe=True):
-					# Hexadimical
-					if integer != "0":
-						raise InvalidError("Expected integer, got '{int}x'".format(int=integer))
-					elif radix is None:
-						radix = 16
-						t.noRollback()
-					else:
-						t.noRollback()
-						raise InvalidError("Two (or more) radix specifiers")
-				else:
-					try:
-						if self.code[self.pos] in whitespace + punctuation:
-							# Punctuation or whitespace
-							break
-					except IndexError:
-						# End
-						break
+							continue
 
-					if self.code[self.pos].upper() in "0123456789ABCDEF":
-						integer += self.code[self.pos].upper()
-						self.pos += 1
-					else:
-						raise InvalidError("Expected integer, got '{char}'".format(char=self.code[self.pos]))
+				try:
+					if self.code[self.pos] in whitespace + punctuation:
+						# Punctuation or whitespace
+						break
+				except IndexError:
+					# End
+					break
+
+				if self.code[self.pos].upper() in "0123456789ABCDEF":
+					integer += self.code[self.pos].upper()
+					self.pos += 1
+				else:
+					raise InvalidError("Expected integer, got '{char}'".format(char=self.code[self.pos]))
 
 			if radix is None:
 				radix = 10 if self.decimal else 8
