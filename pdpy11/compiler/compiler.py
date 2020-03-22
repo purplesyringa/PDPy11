@@ -300,6 +300,8 @@ class Compiler(object):
 					arg = parser.file
 					if arg.endswith(".mac"):
 						arg = arg[:-4]
+				else:
+					arg = os.path.join(os.path.dirname(parser.file), arg)
 				self.build.append(("raw", arg))
 		elif command == ".MAKE_BIN":
 			if parser.file == self.include_root:
@@ -308,6 +310,8 @@ class Compiler(object):
 					if arg.endswith(".mac"):
 						arg = arg[:-4]
 					arg += ".bin"
+				else:
+					arg = os.path.join(os.path.dirname(parser.file), arg)
 				self.build.append(("bin", arg))
 		elif command == ".MAKE_SAV":
 			if parser.file == self.include_root:
@@ -316,6 +320,8 @@ class Compiler(object):
 					if arg.endswith(".mac"):
 						arg = arg[:-4]
 					arg += ".sav"
+				else:
+					arg = os.path.join(os.path.dirname(parser.file), arg)
 				self.build.append(("sav", arg))
 		elif command == ".MAKE_TURBO_WAV" or command == ".MAKE_WAV":
 			if parser.file == self.include_root:
@@ -325,11 +331,12 @@ class Compiler(object):
 					if real_filename.endswith(".mac"):
 						real_filename = real_filename[:-4]
 					real_filename += ".wav"
+				else:
+					real_filename = os.path.join(os.path.dirname(parser.file), real_filename)
 				if bk_filename is None:
-					bk_filename = real_filename
+					bk_filename = os.path.basename(real_filename)
 					if bk_filename.endswith(".wav"):
 						bk_filename = bk_filename[:-4]
-						bk_filename = os.path.basename(bk_filename)
 				pref = "turbo-wav:" if command == ".MAKE_TURBO_WAV" else "wav:"
 				self.build.append((pref + bk_filename, real_filename))
 		elif command == ".CONVERT1251TOKOI8R":
