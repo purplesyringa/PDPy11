@@ -231,18 +231,13 @@ class Compiler(object):
 		if command is None:
 			return
 		elif command == ".LINK":
-			if self.project is not None:
-				if self.include_root == parser.file:
-					self.PC = arg
-					self.linkPC = arg
-					self.link_address = arg
-				else:
-					print("    {name}: linking from {link}, output address may differ".format(name=parser.file, link=repr(arg)))
-					self.linkPC = arg
-			else:
+			if self.include_root == parser.file:
 				self.PC = arg
 				self.linkPC = arg
 				self.link_address = arg
+			else:
+				print("    {name}: linking from {link}, output address may differ".format(name=parser.file, link=util.octal(arg)))
+				self.linkPC = arg
 		elif command == ".INCLUDE":
 			self.include(arg, parser.file, coords)
 		elif command == ".PDP11":
