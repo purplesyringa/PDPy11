@@ -293,7 +293,7 @@ class Compiler(object):
 			if parser.file == self.include_root:
 				if arg is None:
 					arg = parser.file
-					if arg.endswith(".mac"):
+					if arg.lower().endswith(".mac"):
 						arg = arg[:-4]
 				else:
 					arg = os.path.join(os.path.dirname(parser.file), arg)
@@ -302,7 +302,7 @@ class Compiler(object):
 			if parser.file == self.include_root:
 				if arg is None:
 					arg = parser.file
-					if arg.endswith(".mac"):
+					if arg.lower().endswith(".mac"):
 						arg = arg[:-4]
 					arg += ".bin"
 				else:
@@ -312,7 +312,7 @@ class Compiler(object):
 			if parser.file == self.include_root:
 				if arg is None:
 					arg = parser.file
-					if arg.endswith(".mac"):
+					if arg.lower().endswith(".mac"):
 						arg = arg[:-4]
 					arg += ".sav"
 				else:
@@ -323,7 +323,7 @@ class Compiler(object):
 				real_filename, bk_filename = arg
 				if real_filename is None:
 					real_filename = parser.file
-					if real_filename.endswith(".mac"):
+					if real_filename.lower().endswith(".mac"):
 						real_filename = real_filename[:-4]
 					real_filename += ".wav"
 				else:
