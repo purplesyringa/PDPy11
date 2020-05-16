@@ -1,0 +1,96 @@
+{
+    "name": "PDPy11",
+    "author": "Ivanq",
+    "globals": {
+        "foreground": "hsl(0, 0%, 100%)",
+        "background": "hsl(70, 8%, 15%)",
+        "caret": "hsla(0, 0%, 100%, 0.9)",
+        "block_caret": "hsla(0, 0%, 100%, 0.4)",
+        "invisibles": "hsla(0, 0%, 100%, 0.35)",
+        "line_highlight": "hsl(55, 11%, 22%)",
+        "selection": "hsl(55, 8%, 26%)",
+        "selection_border": "hsl(60, 17%, 11%)"
+    },
+    "rules": [
+        {
+            "name": "Storage type",
+            "scope": "storage.type",
+            "foreground": "hsl(150, 80%, 70%)"
+        },
+        {
+            "name": "Control keyword",
+            "scope": "keyword.control",
+            "foreground": "hsl(30, 100%, 60%)",
+            "font_style": "bold"
+        },
+        {
+            "name": "Keyword",
+            "scope": "keyword - (punctuation.definition.keyword, keyword.control), keyword.operator.word",
+            "foreground": "hsl(0, 0%, 100%)",
+            "font_style": "bold"
+        },
+        {
+            "name": "Deprecated",
+            "scope": "invalid.deprecated",
+            "background": "hsl(300, 40%, 60%)"
+        },
+        {
+            "name": "Illegal",
+            "scope": "invalid.illegal",
+            "background": "hsl(350, 100%, 65%)"
+        },
+        {
+            "name": "Register",
+            "scope": "variable.parameter.register",
+            "foreground": "hsl(50, 100%, 50%)"
+        },
+        {
+            "name": "Function declaration",
+            "scope": "variable.function",
+            "foreground": "hsl(200, 100%, 75%)"
+        },
+        {
+            "name": "Constant",
+            "scope": "entity.name",
+            "foreground": "hsl(200, 100%, 75%)"
+        },
+        {
+            "name": "String",
+            "scope": "string",
+            "foreground": "hsl(50, 70%, 70%)"
+        },
+        {
+            "name": "Built-in constant",
+            "scope": "constant.language",
+            "foreground": "hsl(150, 80%, 70%)",
+            "font_style": "bold"
+        },
+        {
+            "name": "Character",
+            "scope": "constant.character",
+            "foreground": "hsl(150, 80%, 70%)"
+        },
+        {
+            "name": "Built-in function",
+            "scope": "support.function",
+            "foreground": "hsl(150, 80%, 70%)"
+        },
+        {
+            "name": "Number",
+            "scope": "constant.numeric",
+            "foreground": "hsl(80, 100%, 55%)"
+        },
+        {
+            "name": "Built-in variable",
+            "scope": "variable.language",
+            "foreground": "hsl(10, 100%, 60%)",
+            "font_style": "bold"
+        },
+        {
+            "name": "Comment",
+            "scope": "comment",
+            "foreground": "hsl(50, 10%, 40%)",
+            "font_style": "italic"
+        }
+    ]
+}

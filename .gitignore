@@ -1,2 +1,5 @@
 __pycache__/
 *.py[cd]
+*.egg-info/
+/dist/
+/build/

@@ -1,0 +1,368 @@
+%YAML 1.2
+---
+name: PDPy11
+file_extensions: [mac, asm]
+scope: source.mac
+
+variables:
+  zero_arg_commands: HALT|WAIT|RTI|BPT|IOT|RESET|RTT|START|STEP|NOP|CLC|CLV|CLZ|CLN|CCC|SEC|SEV|SEZ|SEN|SCC|RET
+  one_arg_commands: SWAB|CLR|CLRB|COM|COMB|INC|INCB|DEC|DECB|NEG|NEGB|ADC|ADCB|SBC|SBCB|TST|TSTB|ROR|RORB|ROL|ROLB|ASR|ASRB|ASL|ASLB|SXT|MTPS|MFPS|EMT|TRAP|MARK|PUSH|POP|CALL|JMP
+  two_arg_commands: MOV|CMP|BIT|BIC|BIS|ADD|MOVB|CMPB|BITB|BICB|BISB|SUB|JSR|MUL|DIV|ASH|ASHC|XOR|RTS
+  branch_commands: BR|BNE|BEQ|BGE|BLT|BGT|BLE|BPL|BMI|BHI|BVS|BVC|BHIS|BCC|BLO|BCS|BLOS
+  sob_commands: SOB
+  command_start: "(({{zero_arg_commands}}|{{one_arg_commands}}|{{two_arg_commands}}|{{branch_commands}}|{{sob_commands}})(?!:)|\\.\\w+|(MAKE_\\w+|D[BWS]|ORG|END|ALIGN|convert1251toKOI8R|decimalnumbers|insert_file))\\b|[a-z$_][a-z0-9$_]*\\s*(=|EQU\\b)"
+  registers: R[0-7]|SP|PC
+
+contexts:
+  main:
+    - match: (?i)\.(ASCI[IZ]|BLK[BW]|BYTE|D[BWS]|D?WORD)\b
+      scope: storage.type.mac
+      push: expr_root_value
+    - match: (?i)\bD[BWS]\b
+      scope: storage.type.mac
+      push: expr_root_value
+
+    - match: (?i)\.(END|EVEN)\b
+      scope: keyword.control.mac
+    - match: (?i)\bEND\b
+      scope: keyword.control.mac
+
+    - match: (?i)\.(LINK|LA|REPEAT)\b
+      scope: keyword.control.mac
+      push: expr_root_value
+    - match: (?i)\b(ORG|ALIGN)\b
+      scope: keyword.control.mac
+      push: expr_root_value
+
+    - match: (?i)\.INCLUDE\b
+      scope: keyword.control.import.include.mac
+      push: expr_root_value
+    - match: (?i)\.RAW_INCLUDE\b
+      scope: keyword.control.import.include.mac
+      push: string_unquoted
+    - match: (?i)\bINSERT_FILE\b
+      scope: keyword.control.import.include.mac
+      push: expr_root_value
+
+    - match: (?i)\.EQU\b
+      scope: keyword.operator.word.mac
+      push: expr_root_value
+
+    - match: (?i)\.ONCE\b
+      scope: keyword.control.import.mac
+    - match: (?i)\.EXTERN\b
+      scope: keyword.control.import.mac
+      push: expr_root_value
+    - match: (?i)\bDECIMALNUMBERS\b
+      scope: keyword.control.import.mac
+      push: expr_root_value
+    - match: (?i)\bMAKE_(RAW|BIN|SAV|(TURBO_|)WAV)\b
+      scope: keyword.control.import.mac
+      push: expr_root_value
+    - match: (?i)\bMAKE_BK0010_ROM\b
+      scope: invalid.deprecated.mac
+      push: expr_root_value
+
+    - match: (?i)\.I8080\b
+      scope: invalid.illegal.mac
+    - match: (?i)\.CONVERT1251TOKOI8R\b
+      scope: invalid.illegal.mac
+      push: expr_root_value
+
+    - match: (?i)\.(PDP11|SYNTAX)\b
+      scope: invalid.deprecated.mac
+
+    - match: (?i)\b({{zero_arg_commands}})(?!:)\b
+      scope: keyword.other.command.mac
+    - match: (?i)\b({{one_arg_commands}})(?!:)\b
+      scope: keyword.other.command.mac
+      push: expr_root_value
+    - match: (?i)\b({{two_arg_commands}})(?!:)\b
+      scope: keyword.other.command.mac
+      push: expr_root_value
+    - match: (?i)\b({{branch_commands}})(?!:)\b
+      scope: keyword.other.control.conditional.mac
+      push: branch
+    - match: (?i)\b({{sob_commands}})(?!:)\b
+      scope: keyword.other.control.conditional.mac
+      push:
+        - match: (?i)\b({{registers}})\b
+          scope: variable.parameter.register.mac
+        - match: (?i)\bR$ # non-finished register name, avoid invalid.illegal for code in process
+        - match: (?i)(?={{command_start}})
+          pop: true
+        - match: \,
+          scope: punctuation.separator.mac
+          set: branch
+        - match: \S
+          scope: invalid.illegal.mac
+        - include: common
+
+    - match: "(?i)\\b[a-z0-9$_]+:"
+      scope: meta.function.declaration.mac variable.function.mac
+
+    - match: (?i)\b([a-z$_][a-z0-9$_]*)\s*(=)
+      captures:
+        1: variable.constant.mac entity.name.constant.mac
+        2: keyword.operator.assignment.mac punctuation.definition.keyword
+      push: expr_root_value
+
+    - match: (?i)\b([a-z$_][a-z0-9$_]*)\s*(=|EQU)
+      captures:
+        1: variable.constant.mac entity.name.constant.mac
+        2: keyword.operator.assignment.mac
+      push: expr_root_value
+
+    - include: common
+
+
+  string_unquoted:
+    - meta_scope: string.unquoted.mac meta.string.mac
+    - match: .*
+      pop: true
+
+
+  branch:
+    - match: "(?i)[a-z0-9$_]+:?"
+      scope: meta.function-call.mac entity.name.constant.mac variable.constant.mac
+      set: expr_root_operator
+    - match: (?=\S)
+      set: expr_root_value
+
+
+  expr_root_value:
+    - include: common
+
+    - match: (?i)(?={{command_start}})
+      pop: true
+
+    - match: (?i)\b(ON|OFF|NONE|ALL)\b
+      scope: constant.language.mac
+
+    - match: <\d+>
+      scope: constant.character.escape.mac
+
+    - match: "[@#]"
+      scope: keyword.operator.mac punctuation.definition.keyword
+    - match: \.
+      scope: variable.language.mac
+      set: expr_root_operator
+
+    - match: \bSTATIC_ALLOC(_BYTE|)\b
+      scope: support.function.mac meta.function-call.mac
+
+    - match: (?i)(-?)\(({{registers}})\)(\+?)
+      captures:
+        2: variable.parameter.register.mac
+      set: expr_root_operator
+    - match: (?i)\b({{registers}})\b
+      scope: variable.parameter.register.mac
+      set: expr_root_operator
+
+    - match: "(?i)[a-z0-9$_]+:"
+      scope: entity.name.constant.mac variable.constant.mac
+      set: expr_root_operator
+    - match: "(?i)[a-z$_][a-z0-9$_]*|[0-9]+[a-z$_][a-z0-9$_]*"
+      scope: entity.name.constant.mac variable.constant.mac
+      set: expr_root_operator
+
+    - match: (?i)-?\b0b[01]+\b
+      scope: constant.numeric.integer.binary.mac
+      set: expr_root_operator
+    - match: (?i)-?\b0x[0-9a-f]+\b
+      scope: constant.numeric.integer.hexadimical.mac
+      set: expr_root_operator
+    - match: (?i)-?\b0o[0-7]+\b
+      scope: constant.numeric.integer.octal.mac
+      set: expr_root_operator
+    - match: (?i)-?\b[0-9]+\.
+      scope: constant.numeric.integer.decimal.mac
+      set: expr_root_operator
+    - match: (?i)-?\b[0-7]+\b
+      scope: constant.numeric.integer.octal.mac
+      set: expr_root_operator
+
+    - match: (?=\()
+      set: expr_root_operator
+    - match: \)
+      scope: meta.parens.mac punctuation.section.parens.end.mac
+      pop: true
+
+    - match: \"
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.double.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: \"
+          scope: punctuation.definition.string.end.mac
+          set: expr_root_operator
+    - match: \'
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.single.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: \'
+          scope: punctuation.definition.string.end.mac
+          set: expr_root_operator
+    - match: /
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.other.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: /
+          scope: punctuation.definition.string.end.mac
+          set: expr_root_operator
+
+
+  expr_root_operator:
+    - include: common
+
+    - match: (?i)(?={{command_start}})
+      scope: invalid.deprecated.mac
+      pop: true
+    - match: (?i)(?=[a-z0-9$_]+:)
+      pop: true
+
+    - match: (?i)\(({{registers}})\)
+      captures:
+        1: variable.parameter.register.mac
+
+    - match: \,
+      scope: punctuation.separator.mac
+      set: expr_root_value
+    - match: "[+\\-*/]"
+      scope: keyword.operator.arithmetic.mac punctuation.definition.keyword
+      set: expr_root_value
+
+    - match: \(
+      scope: meta.parens.mac punctuation.section.parens.begin.mac
+      push: expr_value
+    - match: \)
+      scope: invalid.illegal.mac
+
+
+  expr_value:
+    - include: common
+
+    - match: (?i)(?={{command_start}})
+      pop: true
+
+    - match: (?i)\b(ON|OFF|NONE|ALL)\b
+      scope: constant.language.mac
+
+    - match: <\d+>
+      scope: constant.character.escape.mac
+
+    - match: "[@#]"
+      scope: keyword.operator.mac punctuation.definition.keyword
+    - match: \.
+      scope: variable.language.mac
+      set: expr_operator
+
+    - match: \bSTATIC_ALLOC(_BYTE|)\b
+      scope: support.function.mac meta.function-call.mac
+
+    - match: (?i)(-?)\(({{registers}})\)(\+?)
+      captures:
+        2: variable.parameter.register.mac
+      set: expr_operator
+    - match: (?i)\b({{registers}})\b
+      scope: variable.parameter.register.mac
+      set: expr_operator
+
+    - match: "(?i)[a-z0-9$_]+:"
+      scope: entity.name.constant.mac variable.constant.mac
+      set: expr_operator
+    - match: "(?i)[a-z$_][a-z0-9$_]*|[0-9]+[a-z$_][a-z0-9$_]*"
+      scope: entity.name.constant.mac variable.constant.mac
+      set: expr_operator
+
+    - match: (?i)-?\b0b[01]+\b
+      scope: constant.numeric.integer.binary.mac
+      set: expr_operator
+    - match: (?i)-?\b0x[0-9a-f]+\b
+      scope: constant.numeric.integer.hexadimical.mac
+      set: expr_operator
+    - match: (?i)-?\b0o[0-7]+\b
+      scope: constant.numeric.integer.octal.mac
+      set: expr_operator
+    - match: (?i)-?\b[0-9]+\.
+      scope: constant.numeric.integer.decimal.mac
+      set: expr_operator
+    - match: (?i)-?\b[0-7]+\b
+      scope: constant.numeric.integer.octal.mac
+      set: expr_operator
+
+    - match: (?=\()
+      set: expr_operator
+    - match: \)
+      scope: meta.parens.mac punctuation.section.parens.end.mac
+      pop: true
+
+    - match: \"
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.double.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: \"
+          scope: punctuation.definition.string.end.mac
+          set: expr_operator
+    - match: \'
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.single.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: \'
+          scope: punctuation.definition.string.end.mac
+          set: expr_operator
+    - match: /
+      scope: punctuation.definition.string.begin.mac
+      set:
+        - meta_scope: string.quoted.other.mac meta.string.mac
+        - match: \\.
+          scope: constant.character.escape.mac
+        - match: /
+          scope: punctuation.definition.string.end.mac
+          set: expr_operator
+
+
+  expr_operator:
+    - include: common
+
+    - match: (?i)(?={{command_start}})
+      scope: invalid.deprecated.mac
+      pop: true
+    - match: (?i)(?=[a-z0-9$_]+:)
+      pop: true
+
+    - match: (?i)\(({{registers}})\)
+      captures:
+        1: variable.parameter.register.mac
+
+    - match: \,
+      scope: punctuation.separator.mac
+      set: expr_value
+    - match: "[+\\-*/]"
+      scope: keyword.operator.arithmetic.mac punctuation.definition.keyword
+      set: expr_value
+
+    - match: \(
+      scope: meta.parens.mac punctuation.section.parens.begin.mac
+      push: expr_value
+    - match: \)
+      scope: meta.parens.mac punctuation.section.parens.end.mac
+      pop: true
+
+
+  common:
+    - match: ;
+      scope: punctuation.definition.comment.mac
+      push:
+        - meta_scope: comment.line.mac
+        - match: .*
+          pop: true

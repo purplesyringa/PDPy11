@@ -26,7 +26,7 @@ Press green `Clone or download` button (it's above file list), press `Download Z
 
 You can check the full docs as [docs.md](docs.md).
 
-Read how to use Sublime build system [here](sublime/README.md). For Sublime syntax highlight, see [this gist](https://gist.github.com/imachug/3ab11df5e91c8d815a8c63a76bb08b14).
+Read how to use Sublime Text build system and syntax highlighting [here](sublime/README.md).
 
 ## TL;DR aka tutorial
 
