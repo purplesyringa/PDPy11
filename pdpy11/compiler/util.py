@@ -14,6 +14,8 @@ def encodeBinRawSavWav(output_format, raw, link_address):
 			len(raw) >> 8
 		] + raw
 	elif output_format == "sav":
+		block_start = link_address // 512
+		block_end = (link_address + len(raw) + 511) // 512
 		raw = [0] * 32 + [
 			link_address & 0xFF,
 			link_address >> 8,
@@ -25,7 +27,10 @@ def encodeBinRawSavWav(output_format, raw, link_address):
 			0,
 			(link_address + len(raw)) & 0xFF,
 			(link_address + len(raw)) >> 8
-		] + [0] * 214 + [0] * (link_address - 256) + raw
+		] + [0] * 198 + [
+			sum(((block_start <= ((7 - j) + i * 8) < block_end) << j for j in range(8)))
+			for i in range(16)
+		] + [0] * 256 + raw
 	elif output_format.startswith("turbo-wav:"):
 		bk_filename = output_format[len("turbo-wav:"):]
 		raw = encodeTurboWav(link_address, bk_filename, raw)
