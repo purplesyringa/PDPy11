@@ -11,4 +11,4 @@ if errorlevel 1 (
 ::     echo File extension must be exactly three characters long
 ::     exit /b 1
 :: )
-:: java -jar bk2010.jar -bk0010 -multicolor on -bin "%a:~0,-4%.bin"
+:: java -jar bk2010.jar -bk0010 -multicolor on -bin "%a:~0,-4%.bin" >NUL 2>&1
