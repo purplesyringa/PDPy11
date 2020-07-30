@@ -284,10 +284,11 @@ class Compiler(object):
 			)
 		elif command == ".ASCII":
 			def stringToCharlist(string):
+				bts = util.encodeKoi8(string)
 				if sys.version_info[0] == 2:
-					return list(map(ord, string.decode("utf8").encode("koi8-r")))
-				else:
-					return list(string.encode("koi8-r"))
+					bts = map(ord, bts)
+				return list(bts)
+
 			self.writeBytes(
 				Deferred(arg, str)
 					.then(stringToCharlist, list)

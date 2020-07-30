@@ -60,6 +60,12 @@ def int8ToUint8(int8):
 			return int8
 
 
+def encodeKoi8(string):
+	if sys.version_info[0] == 2:
+		return string.decode("utf8").encode("koi8-r")
+	else:
+		return string.encode("koi8-r")
+
 
 def octal(n):
 	# Compatible with Python 2 and Python 3

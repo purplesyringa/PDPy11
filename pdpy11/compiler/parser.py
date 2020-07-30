@@ -1,10 +1,11 @@
 from __future__ import print_function
 import os
+import sys
 from .commands import commands
 from .deferred import Deferred
 from .expression import Expression, StaticAlloc
 import operator
-from .util import raiseSyntaxError, A, R, D, I, PC
+from .util import raiseSyntaxError, encodeKoi8, A, R, D, I, PC
 
 
 whitespace = "\n\r\t "
@@ -679,20 +680,20 @@ class Parser(object):
 
 			if string is not None:
 				t.noRollback()
-				if len(string) == 0:
+				bts = encodeKoi8(string)
+				if len(bts) == 0:
 					raise InvalidError(
 						"#'string': expected 1 or 2 chars, got 0"
 					)
-				elif len(string) == 1:
+				elif len(bts) == 1:
 					return Expression(
-						ord(string[0]),
+						ord(bts[0]) if sys.version_info[0] == 2 else bts[0],
 						coords["file"],
 						line=coords["line"],
 						column=coords["column"]
 					)
-				elif len(string) == 2:
-					a = ord(string[0])
-					b = ord(string[1])
+				elif len(bts) == 2:
+					a, b = map(ord, bts) if sys.version_info[0] == 2 else bts
 					if a >= 256 or b >= 256:
 						raise InvalidError(
 							"Cannot fit two UTF characters in 1 word: " +
