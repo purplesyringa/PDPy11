@@ -284,7 +284,10 @@ class Compiler(object):
 			)
 		elif command == ".ASCII":
 			def stringToCharlist(string):
-				return [ord(char) for char in string]
+				if sys.version_info[0] == 2:
+					return list(map(ord, string.decode("utf8").encode("koi8-r")))
+				else:
+					return list(string.encode("koi8-r"))
 			self.writeBytes(
 				Deferred(arg, str)
 					.then(stringToCharlist, list)
