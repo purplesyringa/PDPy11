@@ -680,7 +680,12 @@ class Parser(object):
 
 			if string is not None:
 				t.noRollback()
-				bts = encodeKoi8(string)
+				try:
+					bts = encodeKoi8(string)
+				except UnicodeEncodeError:
+					raise InvalidError(
+						"#'string': cannot encode string to KOI8-R"
+					)
 				if len(bts) == 0:
 					raise InvalidError(
 						"#'string': expected 1 or 2 chars, got 0"

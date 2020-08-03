@@ -284,7 +284,13 @@ class Compiler(object):
 			)
 		elif command == ".ASCII":
 			def stringToCharlist(string):
-				bts = util.encodeKoi8(string)
+				try:
+					bts = util.encodeKoi8(string)
+				except UnicodeEncodeError:
+					self.err(
+						coords,
+						"Cannot encode string to KOI8-R"
+					)
 				if sys.version_info[0] == 2:
 					bts = map(ord, bts)
 				return list(bts)
