@@ -3,7 +3,7 @@ from os.path import join, dirname
 
 setup(
 	name="pdpy11",
-	version="1.2.8",
+	version="1.2.9",
 	packages=find_packages(),
 	long_description=open(join(dirname(__file__), "README.md")).read(),
         long_description_content_type="text/markdown"
