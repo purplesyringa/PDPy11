@@ -122,14 +122,14 @@ class Compiler(object):
 			self.addFile(file)
 
 			# Save all writes
-			for ext, name in self.build:
+			for ext, name, args in self.build:
 				try:
 					link_address = Deferred(self.link_address, int)(self)
 					print("    Output: {name} ({ext} format) from {link}".format(name=name, ext=ext, link=util.octal(link_address)))
 				except:
 					print("    Output: {name} ({ext} format) from {link}".format(name=name, ext=ext, link=repr(self.link_address)))
 
-				self.all_build.append((ext, name, self.writes, self.link_address))
+				self.all_build.append((ext, name, args, self.writes, self.link_address))
 
 		print("Linking")
 		return self.link()
@@ -170,7 +170,7 @@ class Compiler(object):
 
 		if self.project is not None:
 			all_build = []
-			for ext, file, writes, link_address in self.all_build:
+			for ext, file, args, writes, link_address in self.all_build:
 				array = []
 				for addr, value in writes:
 					value = Deferred(value, any)(self)
@@ -185,7 +185,7 @@ class Compiler(object):
 						array[addr + i] = value1
 
 				link_address = Deferred(link_address, int)(self)
-				all_build.append((ext, file, array[link_address:], link_address))
+				all_build.append((ext, file, tuple(Deferred(arg)(self) for arg in args), array[link_address:], link_address))
 
 			return all_build
 		else:
@@ -204,7 +204,7 @@ class Compiler(object):
 
 			self.link_address = Deferred(self.link_address, int)(self)
 			self.output = array[self.link_address:]
-			return self.build
+			return [(ext, name, tuple(Deferred(arg)(self) for arg in args)) for ext, name, args in self.build]
 
 	def compileFile(self, file, code):
 		parser = Parser(file, code, syntax=self.syntax)
@@ -307,7 +307,7 @@ class Compiler(object):
 						arg = arg[:-4]
 				else:
 					arg = os.path.join(os.path.dirname(parser.file), arg)
-				self.build.append(("raw", arg))
+				self.build.append(("raw", arg, ()))
 		elif command == ".MAKE_BIN":
 			if parser.file == self.include_root:
 				if arg is None:
@@ -317,17 +317,18 @@ class Compiler(object):
 					arg += ".bin"
 				else:
 					arg = os.path.join(os.path.dirname(parser.file), arg)
-				self.build.append(("bin", arg))
+				self.build.append(("bin", arg, ()))
 		elif command == ".MAKE_SAV":
 			if parser.file == self.include_root:
-				if arg is None:
-					arg = parser.file
-					if arg.lower().endswith(".mac"):
-						arg = arg[:-4]
-					arg += ".sav"
+				filename, final_address = arg
+				if filename is None:
+					filename = parser.file
+					if filename.lower().endswith(".mac"):
+						filename = filename[:-4]
+					filename += ".sav"
 				else:
-					arg = os.path.join(os.path.dirname(parser.file), arg)
-				self.build.append(("sav", arg))
+					filename = os.path.join(os.path.dirname(parser.file), filename)
+				self.build.append(("sav", filename, (final_address,) if final_address is not None else ()))
 		elif command == ".MAKE_TURBO_WAV" or command == ".MAKE_WAV":
 			if parser.file == self.include_root:
 				real_filename, bk_filename = arg
@@ -342,8 +343,8 @@ class Compiler(object):
 					bk_filename = os.path.basename(real_filename)
 					if bk_filename.endswith(".wav"):
 						bk_filename = bk_filename[:-4]
-				pref = "turbo-wav:" if command == ".MAKE_TURBO_WAV" else "wav:"
-				self.build.append((pref + bk_filename, real_filename))
+				format = "turbo-wav" if command == ".MAKE_TURBO_WAV" else "wav"
+				self.build.append((format, real_filename, (bk_filename,)))
 		elif command == ".CONVERT1251TOKOI8R":
 			pass
 		elif command == ".DECIMALNUMBERS":

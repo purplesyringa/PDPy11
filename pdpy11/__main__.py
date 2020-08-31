@@ -87,13 +87,15 @@ if len(sys.argv) < 2:
 	print("""                                resulting filename.                             """)
 	print("""make_bk0010_rom ["..."] /       Same as --bin. If string is passed, this is the """)
 	print("""make_bin ["..."]                resulting filename.                             """)
-	print("""make_sav ["..."]                Same as --sav. If string is passed, this is the """)
-	print("""                                resulting filename.                             """)
-	print("""make_turbo_wav ["..." ["..."]]  Same as --turbo-wav. If a string is passed, this""")
+	print("""make_sav ["..."[, ...]]         Same as --sav. If string is passed, this is the """)
+	print("""                                resulting filename. If an additional argument   """)
+	print("""                                is passed, it is the final address used by the  """)
+	print("""                                program.                                        """)
+	print("""make_turbo_wav ["..."[, "..."]] Same as --turbo-wav. If a string is passed, this""")
 	print("""                                is the resulting filename. If two strings are   """)
 	print("""                                passed, the first one is the real filename and  """)
 	print("""                                the second one is BK filename.                  """)
-	print("""make_wav ["..." ["..."]]        Same as --wav. If a string is passed, this is   """)
+	print("""make_wav ["..."[, "..."]]       Same as --wav. If a string is passed, this is   """)
 	print("""                                the resulting filename. If two strings are      """)
 	print("""                                passed, the first one is the real filename and  """)
 	print("""                                the second one is BK filename.                  """)
@@ -307,9 +309,9 @@ for name, value in defines:
 if project is not None:
 	# Project mode
 	lstname = project
-	for ext, file, output, link_address in compiler.buildProject():
+	for ext, file, args, output, link_address in compiler.buildProject():
 		with open_device(file, "wb") as f:
-			f.write(encodeBinRawSavWav(ext, output, link_address))
+			f.write(encodeBinRawSavWav(ext, args, output, link_address))
 else:
 	# Single file mode
 	lstname = files[0]
@@ -321,14 +323,14 @@ else:
 
 	out_files = compiler.link()
 
-	for ext, file in out_files:
+	for ext, file, args in out_files:
 		with open_device(file, "wb") as f:
-			f.write(encodeBinRawSavWav(ext, compiler.output, compiler.link_address))
+			f.write(encodeBinRawSavWav(ext, args, compiler.output, compiler.link_address))
 
 	if len(out_files) == 0:
 		# No output file
 		with open_device(output, "wb") as f:
-			f.write(encodeBinRawSavWav(output_format or "bin", compiler.output, compiler.link_address))
+			f.write(encodeBinRawSavWav(output_format or "bin", (), compiler.output, compiler.link_address))
 
 if do_lst:
 	with open(lstname + ".lst", "w") as f:

@@ -5,7 +5,7 @@ from .deferred import Deferred
 from .turbowav import encodeTurboWav
 from .wav import encodeWav
 
-def encodeBinRawSavWav(output_format, raw, link_address):
+def encodeBinRawSavWav(output_format, args, raw, link_address):
 	if output_format == "bin":
 		raw = [
 			link_address & 0xFF,
@@ -14,8 +14,9 @@ def encodeBinRawSavWav(output_format, raw, link_address):
 			len(raw) >> 8
 		] + raw
 	elif output_format == "sav":
+		final_address = args[0] if len(args) >= 1 else link_address + len(raw)
 		block_start = link_address // 512
-		block_end = (link_address + len(raw) + 511) // 512
+		block_end = (final_address + 511) // 512
 		raw = [0] * 32 + [
 			link_address & 0xFF,
 			link_address >> 8,
@@ -25,8 +26,8 @@ def encodeBinRawSavWav(output_format, raw, link_address):
 			0,
 			0,
 			0,
-			(link_address + len(raw)) & 0xFF,
-			(link_address + len(raw)) >> 8
+			final_address & 0xFF,
+			final_address >> 8
 		] + [0] * 198 + [
 			sum(((block_start <= ((7 - j) + i * 8) < block_end) << j for j in range(8)))
 			for i in range(16)

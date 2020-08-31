@@ -329,7 +329,12 @@ class Parser(object):
 
 	def handleMakeSav(self):
 		with Transaction(self, maybe=False, stage=".MAKE_SAV"):
-			return ".MAKE_SAV", self.needString(maybe=True)
+			filename = self.needString(maybe=True)
+			if filename is not None and self.needPunct(",", maybe=True):
+				final_address = self.needExpression()
+			else:
+				final_address = None
+			return ".MAKE_SAV", (filename, final_address)
 
 	def handleMakeTurboWav(self):
 		with Transaction(self, maybe=False, stage=".MAKE_TURBO_WAV"):
