@@ -32,10 +32,10 @@ def encodeBinRawSavWav(output_format, args, raw, link_address):
 			sum(((block_start <= ((7 - j) + i * 8) < block_end) << j for j in range(8)))
 			for i in range(16)
 		] + [0] * 256 + raw
-	elif output_format.startswith("turbo-wav:"):
+	elif output_format == "turbo-wav":
 		bk_filename = output_format[len("turbo-wav:"):]
 		raw = encodeTurboWav(link_address, bk_filename, raw)
-	elif output_format.startswith("wav:"):
+	elif output_format == "wav":
 		bk_filename = output_format[len("wav:"):]
 		raw = encodeWav(link_address, bk_filename, raw)
 
