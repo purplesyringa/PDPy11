@@ -90,7 +90,7 @@ class Compiler(object):
 		to_make = set()
 		for file in self.file_list:
 			# Read file
-			with open(file, "r") as f:
+			with open(file, "r", encoding="utf-8") as f:
 				code = f.read()
 
 			# Parse it
@@ -150,7 +150,7 @@ class Compiler(object):
 					self.addFile(subfile, relative_to=self.project)
 			return
 
-		with open(file, "r") as f:
+		with open(file, "r", encoding="utf-8") as f:
 			code = f.read()
 
 		self.compileFile(file, code)
