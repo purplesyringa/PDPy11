@@ -1,5 +1,9 @@
 # PDPy11
 
+> **Note:** This is the repository for the first version of PDPy11. The latest version is available here: https://github.com/pdpy11/pdpy11.
+
+---
+
 PDPy11 is a compiler for PDP-11, written in Python.
 
 License: MIT
