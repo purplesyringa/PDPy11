@@ -33,10 +33,10 @@ def encodeBinRawSavWav(output_format, args, raw, link_address):
 			for i in range(16)
 		] + [0] * 256 + raw
 	elif output_format == "turbo-wav":
-		bk_filename = output_format[len("turbo-wav:"):]
+		bk_filename = args[0]
 		raw = encodeTurboWav(link_address, bk_filename, raw)
 	elif output_format == "wav":
-		bk_filename = output_format[len("wav:"):]
+		bk_filename = args[0]
 		raw = encodeWav(link_address, bk_filename, raw)
 
 	if sys.version_info[0] == 2:
