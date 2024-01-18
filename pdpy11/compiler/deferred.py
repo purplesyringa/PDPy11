@@ -114,16 +114,16 @@ def call(f, context):
 		f.repr_disabled = True
 
 	try:
-		spec = inspect.getargspec(f)
+		spec = inspect.getfullargspec(f)
 	except TypeError:
-		spec = inspect.getargspec(f.__call__)
+		spec = inspect.getfullargspec(f.__call__)
 	finally:
 		if isinstance(f, (Deferred, Lambda)):
 			f.repr_disabled = False
 
 	args = len(spec.args)
 	varargs = spec.varargs is not None
-	kwargs = spec.keywords is not None
+	kwargs = spec.varkw is not None
 
 	# Method
 	if isinstance(f, types.MethodType):
